@@ -1,0 +1,74 @@
+{
+  "examples": [
+    {
+      "text": "UPI-1234567890-ZOMATO PAY*ABCD",
+      "amount": 249.00,
+      "date": "2025-11-10",
+      "currency": "INR",
+      "expected_category": "Food & Dining"
+    },
+    {
+      "text": "POS 4532 HPCL KANPUR",
+      "amount": 1200.00,
+      "date": "2025-10-04",
+      "currency": "INR",
+      "expected_category": "Fuel"
+    },
+    {
+      "text": "IMPS 9142 TO VIKAS",
+      "amount": 3000.00,
+      "date": "2025-11-01",
+      "currency": "INR",
+      "expected_category": "Transfers/UPI"
+    },
+    {
+      "text": "ATM WDL 5678 MUMBAI",
+      "amount": 5000.00,
+      "date": "2025-11-05",
+      "currency": "INR",
+      "expected_category": "ATM/Cash"
+    },
+    {
+      "text": "UPI-BIGBASKET-3456",
+      "amount": 1850.00,
+      "date": "2025-11-08",
+      "currency": "INR",
+      "expected_category": "Groceries"
+    },
+    {
+      "text": "CARD 1234 AT AMAZON INDIA",
+      "amount": 2499.00,
+      "date": "2025-11-09",
+      "currency": "INR",
+      "expected_category": "Shopping"
+    },
+    {
+      "text": "UPI-OLA-RIDES-7890",
+      "amount": 275.00,
+      "date": "2025-11-10",
+      "currency": "INR",
+      "expected_category": "Transport"
+    },
+    {
+      "text": "NEFT TO LANDLORD RENT NOV",
+      "amount": 25000.00,
+      "date": "2025-11-01",
+      "currency": "INR",
+      "expected_category": "Rent"
+    },
+    {
+      "text": "DEBIT CARD NETFLIX SUBSCRIPTION",
+      "amount": 649.00,
+      "date": "2025-11-10",
+      "currency": "INR",
+      "expected_category": "Entertainment"
+    },
+    {
+      "text": "UPI-PHARMEASY-MED",
+      "amount": 450.00,
+      "date": "2025-11-07",
+      "currency": "INR",
+      "expected_category": "Health"
+    }
+  ]
+}
