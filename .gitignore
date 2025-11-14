@@ -69,3 +69,13 @@ evals/reports/*.json
 
 # OS
 Thumbs.db
+
+# Node.js / UI
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.next/
+out/
+dist/
+ui/.next/
