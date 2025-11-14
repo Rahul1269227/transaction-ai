@@ -6,6 +6,7 @@ Comprehensive evaluation of transaction categorization system
 import json
 import argparse
 import logging
+import os
 from pathlib import Path
 from typing import List, Dict, Tuple
 from collections import defaultdict
@@ -14,7 +15,7 @@ import sys
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core.model import HybridRouter
+from core.model import HybridRouter, EnsembleRouter
 from core.normalize import TransactionNormalizer
 
 logging.basicConfig(
@@ -205,20 +206,46 @@ def main():
     parser.add_argument('--test', type=str, required=True, help='Path to test JSONL')
     parser.add_argument('--taxonomy', type=str, default='data/taxonomy.yaml', help='Taxonomy file')
     parser.add_argument('--gazetteer', type=str, default='data/gazetteer/merchant_aliases.csv', help='Gazetteer file')
-    parser.add_argument('--model', type=str, default=None, help='Path to trained model (optional)')
+    parser.add_argument('--model', type=str, default=None, help='Path to trained ML model')
     parser.add_argument('--output', type=str, default='evals/reports/evaluation_report.json', help='Output report path')
+    parser.add_argument('--router', choices=['hybrid', 'ensemble'], default='hybrid', help='Router strategy')
+    parser.add_argument('--auto-accept-threshold', type=float, default=0.85, help='Auto accept threshold')
+    parser.add_argument('--review-threshold', type=float, default=0.60, help='Review threshold')
+    parser.add_argument('--llm-url', type=str, default=os.getenv('LLM_URL', 'http://llm-service:11434'), help='LLM endpoint')
+    parser.add_argument('--llm-model', type=str, default=os.getenv('LLM_MODEL', 'llama3.1:8b'), help='LLM model name')
+    parser.add_argument('--few-shot', type=str, default=None, help='Few-shot examples file')
+    parser.add_argument('--rule-weight', type=float, default=0.3, help='Rule weight for ensemble')
+    parser.add_argument('--ml-weight', type=float, default=0.4, help='ML weight for ensemble')
+    parser.add_argument('--llm-weight', type=float, default=0.3, help='LLM weight for ensemble')
+    parser.add_argument('--parallel', action='store_true', help='Run ensemble classifiers in parallel')
 
     args = parser.parse_args()
 
     # Initialize router
-    logger.info("Initializing router...")
-    router = HybridRouter(
-        taxonomy_path=args.taxonomy,
-        gazetteer_path=args.gazetteer,
-        model_path=args.model,
-        auto_accept_threshold=0.85,
-        review_threshold=0.60
-    )
+    logger.info("Initializing router (%s)...", args.router)
+    if args.router == 'ensemble':
+        router = EnsembleRouter(
+            taxonomy_path=args.taxonomy,
+            gazetteer_path=args.gazetteer,
+            ml_model_path=args.model,
+            llm_url=args.llm_url,
+            llm_model=args.llm_model,
+            few_shot_examples_path=args.few_shot,
+            rule_weight=args.rule_weight,
+            ml_weight=args.ml_weight,
+            llm_weight=args.llm_weight,
+            auto_accept_threshold=args.auto_accept_threshold,
+            review_threshold=args.review_threshold,
+            enable_parallel=args.parallel
+        )
+    else:
+        router = HybridRouter(
+            taxonomy_path=args.taxonomy,
+            gazetteer_path=args.gazetteer,
+            model_path=args.model,
+            auto_accept_threshold=args.auto_accept_threshold,
+            review_threshold=args.review_threshold
+        )
 
     # Initialize evaluator
     evaluator = EvaluationRunner(router)
