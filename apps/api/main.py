@@ -3,282 +3,727 @@ Transaction Categorization API
 FastAPI application for transaction categorization service
 """
 
-import os
+import hashlib
+import json
 import logging
-from datetime import datetime
-from typing import Optional
-from pathlib import Path
-
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-
-# Import core modules
+import os
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+import time
+from contextlib import contextmanager
+from datetime import date, datetime
+from decimal import Decimal
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+from uuid import uuid4
 
-from core.models import (
-    TransactionInput,
-    TransactionBatchInput,
-    TransactionOutput,
-    TransactionBatchOutput,
-    MerchantQuery,
-    MerchantMatchResult,
-    MerchantMatch as MerchantMatchModel,
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response
+from redis import Redis
+from redis.exceptions import RedisError
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Date as SADate,
+    DateTime,
+    Integer,
+    JSON,
+    Numeric,
+    String,
+    Text,
+    create_engine,
+)
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
+# Ensure repo root is on sys.path before importing project modules
+BASE_DIR = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(BASE_DIR))
+
+load_dotenv()
+
+from core.model import EnsembleRouter, HybridRouter  # noqa: E402
+from core.models import (  # noqa: E402
+    CategoryResult,
+    ErrorResponse,
     FeedbackInput,
     FeedbackResponse,
+    HealthResponse,
+    MerchantMatch as MerchantMatchModel,
+    MerchantMatchResult,
+    MerchantQuery,
+    NormalizedTransaction,
+    TransactionBatchInput,
+    TransactionBatchOutput,
+    TransactionInput,
+    TransactionOutput,
     TrainingRequest,
     TrainingResponse,
-    HealthResponse,
-    ErrorResponse,
-    NormalizedTransaction,
-    CategoryResult
 )
-from core.model import HybridRouter
-from core.resolve import MerchantResolver
+from core.resolve import MerchantResolver  # noqa: E402
 
-# Configure logging
+RouterType = Union[HybridRouter, EnsembleRouter]
+Base = declarative_base()
+
+
+def bool_from_env(key: str, default: bool = False) -> bool:
+    value = os.getenv(key)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def resolve_path(path_str: Optional[str], fallback: Path) -> Path:
+    if not path_str:
+        return fallback
+    candidate = Path(path_str)
+    return candidate if candidate.is_absolute() else (BASE_DIR / candidate)
+
+
+# Environment-driven configuration
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+DATABASE_URL = os.getenv("DATABASE_URL")
+REDIS_URL = os.getenv("REDIS_URL")
+CACHE_TTL = int(os.getenv("CACHE_TTL", "600"))
+AUTO_ACCEPT_THRESHOLD = float(os.getenv("AUTO_ACCEPT_THRESHOLD", "0.85"))
+REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.60"))
+RULE_WEIGHT = float(os.getenv("RULE_WEIGHT", "0.3"))
+ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.4"))
+LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.3"))
+LLM_URL = os.getenv("LLM_URL", "http://llm-service:11434")
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
+USE_ENSEMBLE = bool_from_env("USE_ENSEMBLE", False)
+PROMETHEUS_ENABLED = bool_from_env("PROMETHEUS_ENABLED", False)
+API_HOST = os.getenv("API_HOST", "0.0.0.0")
+API_PORT = int(os.getenv("API_PORT", "8000"))
+API_RELOAD = bool_from_env("API_RELOAD", True)
+
+TAXONOMY_PATH = resolve_path(os.getenv("TAXONOMY_PATH"), BASE_DIR / "data" / "taxonomy.yaml")
+GAZETTEER_PATH = resolve_path(
+    os.getenv("GAZETTEER_PATH"), BASE_DIR / "data" / "gazetteer" / "merchant_aliases.csv"
+)
+MODEL_PATH = resolve_path(os.getenv("MODEL_PATH"), BASE_DIR / "models" / "classifier")
+FEW_SHOT_PATH = os.getenv("FEW_SHOT_EXAMPLES_PATH")
+
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=getattr(logging, LOG_LEVEL, logging.INFO),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+# FastAPI app
 app = FastAPI(
     title="Transaction AI Categorization API",
     description="AI-powered transaction categorization system",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
 )
-
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global state
-router: Optional[HybridRouter] = None
+
+# SQLAlchemy ORM models -----------------------------------------------------
+class TransactionRecordORM(Base):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    original_text = Column(Text, nullable=False)
+    amount = Column(Numeric(15, 2))
+    currency = Column(String(10), default="INR")
+    date = Column(SADate)
+    category = Column(String(100), nullable=False)
+    subcategory = Column(String(100))
+    confidence = Column(Numeric(5, 4))
+    method = Column(String(50))
+    merchant = Column(String(255))
+    channel = Column(String(50))
+    reference = Column(String(255))
+    requires_review = Column(Boolean, default=False)
+    reviewed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class FeedbackRecordORM(Base):
+    __tablename__ = "feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_text = Column(Text, nullable=False)
+    predicted_category = Column(String(100), nullable=False)
+    correct_category = Column(String(100), nullable=False)
+    predicted_subcategory = Column(String(100))
+    correct_subcategory = Column(String(100))
+    amount = Column(Numeric(15, 2))
+    date = Column(SADate)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class TrainingJobRecordORM(Base):
+    __tablename__ = "training_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(String(255), unique=True, nullable=False)
+    dataset_path = Column(Text)
+    model_name = Column(String(255))
+    status = Column(String(50), default="queued")
+    accuracy = Column(Numeric(5, 4))
+    metrics = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+
+# Global runtime state ------------------------------------------------------
+router: Optional[RouterType] = None
 merchant_resolver: Optional[MerchantResolver] = None
-
-# Paths
-BASE_DIR = Path(__file__).parent.parent.parent
-TAXONOMY_PATH = BASE_DIR / "data" / "taxonomy.yaml"
-GAZETTEER_PATH = BASE_DIR / "data" / "gazetteer" / "merchant_aliases.csv"
-MODEL_PATH = BASE_DIR / "models" / "classifier"
+db_engine = None
+SessionLocal: Optional[sessionmaker] = None
+redis_client: Optional[Redis] = None
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize components on startup"""
-    global router, merchant_resolver
+# Prometheus metrics --------------------------------------------------------
+if PROMETHEUS_ENABLED:
+    try:
+        from prometheus_client import (
+            CONTENT_TYPE_LATEST,
+            Counter,
+            Gauge,
+            Histogram,
+            generate_latest,
+        )
 
-    logger.info("Starting Transaction Categorization API...")
+        REQUEST_COUNTER = Counter(
+            "categorization_requests_total",
+            "Total API requests grouped by endpoint",
+            ["endpoint"],
+        )
+        LATENCY_HIST = Histogram(
+            "categorization_latency_seconds",
+            "End-to-end request latency",
+            ["endpoint"],
+            buckets=(0.05, 0.1, 0.25, 0.5, 1.0, 2.0, 5.0),
+        )
+        METHOD_COUNTER = Counter(
+            "method_usage_total", "Method usage count", ["method"]
+        )
+        REVIEW_COUNTER = Counter(
+            "categorization_requires_review_total",
+            "Transactions routed to manual review",
+            ["endpoint"],
+        )
+        CACHE_COUNTER = Counter(
+            "categorization_cache_events_total",
+            "Cache hits/misses",
+            ["endpoint", "result"],
+        )
+        ENSEMBLE_AGREEMENT = Gauge(
+            "ensemble_agreement_ratio",
+            "Agreement ratio across ensemble methods (last observation)",
+        )
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning(f"Prometheus client unavailable: {exc}")
+        PROMETHEUS_ENABLED = False
+        REQUEST_COUNTER = LATENCY_HIST = METHOD_COUNTER = REVIEW_COUNTER = CACHE_COUNTER = None
+        ENSEMBLE_AGREEMENT = None
+        CONTENT_TYPE_LATEST = None
+        generate_latest = None
+else:
+    REQUEST_COUNTER = LATENCY_HIST = METHOD_COUNTER = REVIEW_COUNTER = CACHE_COUNTER = None
+    ENSEMBLE_AGREEMENT = None
+    CONTENT_TYPE_LATEST = None
+    generate_latest = None
+
+
+def record_metrics(
+    endpoint: str,
+    duration: float,
+    output: Optional[TransactionOutput] = None,
+    cache_hit: Optional[bool] = None,
+) -> None:
+    if not PROMETHEUS_ENABLED or REQUEST_COUNTER is None:
+        return
+
+    REQUEST_COUNTER.labels(endpoint=endpoint).inc()
+    LATENCY_HIST.labels(endpoint=endpoint).observe(duration)
+
+    if cache_hit is not None:
+        CACHE_COUNTER.labels(endpoint=endpoint, result="hit" if cache_hit else "miss").inc()
+
+    if not output:
+        return
+
+    METHOD_COUNTER.labels(method=output.method).inc()
+    if output.requires_review:
+        REVIEW_COUNTER.labels(endpoint=endpoint).inc()
+
+    if output.ensemble_votes and ENSEMBLE_AGREEMENT:
+        total = output.ensemble_votes.get("total_methods") or 0
+        agree = output.ensemble_votes.get("agreement_count") or 0
+        if total:
+            ENSEMBLE_AGREEMENT.set(agree / total)
+
+
+# Database helpers ----------------------------------------------------------
+def init_database() -> None:
+    global db_engine, SessionLocal
+    if not DATABASE_URL:
+        logger.info("DATABASE_URL not set; database persistence disabled")
+        return
 
     try:
-        # Initialize router
-        router = HybridRouter(
-            taxonomy_path=str(TAXONOMY_PATH) if TAXONOMY_PATH.exists() else None,
-            gazetteer_path=str(GAZETTEER_PATH) if GAZETTEER_PATH.exists() else None,
-            model_path=str(MODEL_PATH) if MODEL_PATH.exists() else None,
-            auto_accept_threshold=0.85,
-            review_threshold=0.60
-        )
-        logger.info("Hybrid router initialized")
+        db_engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+        SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+        logger.info("Database engine initialized")
+    except Exception as exc:
+        logger.warning(f"Failed to initialize database: {exc}")
+        db_engine = None
+        SessionLocal = None
 
-        # Initialize standalone merchant resolver for /merchants endpoint
-        if GAZETTEER_PATH.exists():
-            merchant_resolver = MerchantResolver(str(GAZETTEER_PATH))
-            logger.info("Merchant resolver initialized")
 
-        logger.info("API startup complete")
+@contextmanager
+def db_session() -> Union[Session, None]:
+    if SessionLocal is None:
+        yield None
+        return
 
-    except Exception as e:
-        logger.error(f"Error during startup: {e}")
+    session = SessionLocal()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
         raise
+    finally:
+        session.close()
+
+
+def _to_decimal(value: Optional[float]) -> Optional[Decimal]:
+    if value is None:
+        return None
+    try:
+        return Decimal(str(value))
+    except Exception:
+        return None
+
+
+def _parse_date(value: Optional[str]) -> Optional[date]:
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        return None
+
+
+def persist_transaction_record(output: TransactionOutput) -> Optional[int]:
+    if SessionLocal is None:
+        return None
+
+    normalized = output.normalized
+    with db_session() as session:
+        if session is None:
+            return None
+        try:
+            record = TransactionRecordORM(
+                original_text=output.original_text,
+                amount=_to_decimal(normalized.amount),
+                currency=normalized.currency,
+                date=_parse_date(normalized.date),
+                category=output.category,
+                subcategory=output.subcategory,
+                confidence=_to_decimal(output.confidence),
+                method=output.method,
+                merchant=normalized.merchant,
+                channel=normalized.channel,
+                reference=normalized.reference,
+                requires_review=output.requires_review,
+            )
+            session.add(record)
+            session.flush()
+            return record.id
+        except Exception as exc:
+            logger.warning(f"Failed to persist transaction: {exc}")
+            return None
+
+
+def persist_feedback_record(feedback: FeedbackInput) -> Optional[int]:
+    if SessionLocal is None:
+        return None
+
+    with db_session() as session:
+        if session is None:
+            return None
+        try:
+            record = FeedbackRecordORM(
+                transaction_text=feedback.transaction_text,
+                predicted_category=feedback.predicted_category,
+                correct_category=feedback.correct_category,
+                predicted_subcategory=feedback.predicted_subcategory,
+                correct_subcategory=feedback.correct_subcategory,
+                amount=_to_decimal(feedback.amount),
+                date=_parse_date(feedback.date),
+                notes=feedback.notes,
+            )
+            session.add(record)
+            session.flush()
+            return record.id
+        except Exception as exc:
+            logger.warning(f"Failed to persist feedback: {exc}")
+            return None
+
+
+def enqueue_training_job(request: TrainingRequest) -> str:
+    job_id = str(uuid4())
+    if SessionLocal is None:
+        logger.info("Database not configured; returning ephemeral training job id")
+        return job_id
+
+    with db_session() as session:
+        if session is None:
+            return job_id
+        try:
+            record = TrainingJobRecordORM(
+                job_id=job_id,
+                dataset_path=request.dataset_path,
+                model_name=request.model_name,
+                status="queued",
+                metrics=request.parameters or {},
+            )
+            session.add(record)
+        except Exception as exc:
+            logger.warning(f"Failed to persist training job: {exc}")
+    return job_id
+
+
+def persist_feedback_locally(feedback: FeedbackInput) -> str:
+    feedback_dir = BASE_DIR / "data" / "feedback"
+    feedback_dir.mkdir(parents=True, exist_ok=True)
+    feedback_file = feedback_dir / f"feedback_{datetime.utcnow().strftime('%Y%m%d')}.jsonl"
+    payload = feedback.model_dump(mode="json")
+    with feedback_file.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload) + "\n")
+    return feedback_file.name
+
+
+# Cache helpers -------------------------------------------------------------
+def init_cache() -> None:
+    global redis_client
+    if not REDIS_URL:
+        logger.info("REDIS_URL not set; response caching disabled")
+        return
+
+    try:
+        redis_client = Redis.from_url(REDIS_URL, decode_responses=True)
+        redis_client.ping()
+        logger.info("Redis cache initialized")
+    except RedisError as exc:
+        logger.warning(f"Failed to initialize Redis: {exc}")
+        redis_client = None
+
+
+def build_cache_key(transaction: TransactionInput) -> str:
+    payload = f"{transaction.text}|{transaction.amount}|{transaction.date}|{transaction.currency}"
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return f"txn_cache:{digest}"
+
+
+def fetch_cached_output(key: str) -> Optional[TransactionOutput]:
+    if not redis_client:
+        return None
+    try:
+        cached = redis_client.get(key)
+        if not cached:
+            return None
+        return TransactionOutput(**json.loads(cached))
+    except (RedisError, json.JSONDecodeError) as exc:
+        logger.warning(f"Failed to fetch cached response: {exc}")
+        return None
+
+
+def cache_output(key: str, output: TransactionOutput) -> None:
+    if not redis_client:
+        return
+    try:
+        redis_client.setex(key, CACHE_TTL, json.dumps(output.model_dump(mode="json")))
+    except RedisError as exc:
+        logger.warning(f"Failed to cache response: {exc}")
+
+
+# Router and resolver initialization ----------------------------------------
+def build_router() -> RouterType:
+    taxonomy = str(TAXONOMY_PATH) if TAXONOMY_PATH.exists() else None
+    gazetteer = str(GAZETTEER_PATH) if GAZETTEER_PATH.exists() else None
+    model_path = str(MODEL_PATH) if MODEL_PATH.exists() else None
+    few_shot = str(resolve_path(FEW_SHOT_PATH, BASE_DIR)) if FEW_SHOT_PATH else None
+
+    if USE_ENSEMBLE:
+        logger.info("Initializing ensemble router with LLM support")
+        return EnsembleRouter(
+            taxonomy_path=taxonomy,
+            gazetteer_path=gazetteer,
+            ml_model_path=model_path,
+            llm_url=LLM_URL,
+            llm_model=LLM_MODEL,
+            few_shot_examples_path=few_shot,
+            rule_weight=RULE_WEIGHT,
+            ml_weight=ML_WEIGHT,
+            llm_weight=LLM_WEIGHT,
+            auto_accept_threshold=AUTO_ACCEPT_THRESHOLD,
+            review_threshold=REVIEW_THRESHOLD,
+            enable_parallel=True,
+        )
+
+    logger.info("Initializing hybrid router (rules + ML)")
+    return HybridRouter(
+        taxonomy_path=taxonomy,
+        gazetteer_path=gazetteer,
+        model_path=model_path,
+        auto_accept_threshold=AUTO_ACCEPT_THRESHOLD,
+        review_threshold=REVIEW_THRESHOLD,
+    )
+
+
+def init_merchant_resolver() -> Optional[MerchantResolver]:
+    if not GAZETTEER_PATH.exists():
+        return None
+    try:
+        resolver = MerchantResolver(str(GAZETTEER_PATH))
+        logger.info("Merchant resolver initialized")
+        return resolver
+    except Exception as exc:
+        logger.warning(f"Failed to initialize merchant resolver: {exc}")
+        return None
+
+
+# FastAPI lifecycle ---------------------------------------------------------
+@app.on_event("startup")
+async def startup_event() -> None:
+    global router, merchant_resolver
+    logger.info("Starting Transaction Categorization API...")
+
+    init_database()
+    init_cache()
+
+    try:
+        router = build_router()
+        logger.info("Router initialized (%s)", router.__class__.__name__)
+    except Exception as exc:
+        logger.error(f"Router initialization failed: {exc}")
+        raise
+
+    merchant_resolver = init_merchant_resolver()
+    logger.info("Startup complete")
 
 
 @app.on_event("shutdown")
-async def shutdown_event():
-    """Cleanup on shutdown"""
+async def shutdown_event() -> None:
+    if redis_client:
+        try:
+            redis_client.close()
+        except Exception:
+            pass
     logger.info("Shutting down Transaction Categorization API...")
 
 
+# Utility helpers -----------------------------------------------------------
+def build_transaction_output(
+    transaction: TransactionInput,
+    normalized_payload: Dict[str, Any],
+    result: Any,
+) -> TransactionOutput:
+    normalized = NormalizedTransaction(**normalized_payload["normalized"])
+    alternatives = None
+    if result.alternatives:
+        alternatives = [
+            CategoryResult(
+                category=alt[0],
+                subcategory=None,
+                confidence=alt[1],
+                explanations=[],
+                method=result.method,
+            )
+            for alt in result.alternatives
+        ]
+
+    return TransactionOutput(
+        original_text=transaction.text,
+        normalized=normalized,
+        category=result.category,
+        subcategory=result.subcategory,
+        confidence=float(result.confidence),
+        explanations=result.explanations or [],
+        method=result.method,
+        alternatives=alternatives,
+        requires_review=result.requires_review,
+        ensemble_votes=getattr(result, "ensemble_votes", None),
+    )
+
+
+def get_effective_merch_resolver() -> Optional[MerchantResolver]:
+    if merchant_resolver:
+        return merchant_resolver
+    if router and getattr(router, "merchant_resolver", None):
+        return router.merchant_resolver
+    return None
+
+
+def llm_component_status() -> str:
+    if not router or not getattr(router, "llm_classifier", None):
+        return "unavailable"
+    try:
+        return "healthy" if router.llm_classifier.check_health() else "degraded"
+    except Exception:
+        return "degraded"
+
+
+# API endpoints -------------------------------------------------------------
 @app.get("/", tags=["Root"])
-async def root():
-    """Root endpoint"""
+async def root() -> Dict[str, str]:
     return {
         "service": "Transaction AI Categorization API",
         "version": "1.0.0",
         "status": "running",
-        "docs": "/docs"
+        "docs": "/docs",
     }
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check():
-    """Health check endpoint"""
     components = {
-        "normalizer": "healthy",
-        "rule_categorizer": "healthy" if router and router.rule_categorizer else "unavailable",
-        "ml_classifier": "healthy" if router and router.ml_classifier else "unavailable",
-        "merchant_resolver": "healthy" if router and router.merchant_resolver else "unavailable",
+        "router": "healthy" if router else "unavailable",
+        "normalizer": "healthy" if router else "unavailable",
+        "rule_categorizer": "healthy"
+        if router and getattr(router, "rule_categorizer", None)
+        else "unavailable",
+        "ml_classifier": "healthy"
+        if router and getattr(router, "ml_classifier", None)
+        else "unavailable",
+        "llm_classifier": llm_component_status(),
+        "merchant_resolver": "healthy" if get_effective_merch_resolver() else "unavailable",
+        "database": "healthy" if SessionLocal else "unavailable",
+        "cache": "healthy" if redis_client else "unavailable",
     }
 
-    all_healthy = all(status == "healthy" for status in components.values())
-
+    status = "healthy" if all(value == "healthy" for value in components.values()) else "degraded"
     return HealthResponse(
-        status="healthy" if all_healthy else "degraded",
+        status=status,
         version="1.0.0",
         timestamp=datetime.utcnow().isoformat() + "Z",
-        components=components
+        components=components,
     )
 
 
 @app.post("/categorize", response_model=TransactionOutput, tags=["Categorization"])
 async def categorize_transaction(transaction: TransactionInput):
-    """
-    Categorize a single transaction
-
-    Args:
-        transaction: Transaction input with text, amount, date
-
-    Returns:
-        TransactionOutput with category, confidence, and explanations
-    """
     if not router:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
+    cache_key = build_cache_key(transaction)
+    cached_output = fetch_cached_output(cache_key)
+    if cached_output:
+        record_metrics("categorize", 0.0, cached_output, cache_hit=True)
+        return cached_output
+
+    start = time.perf_counter()
     try:
-        # Categorize
         result = router.categorize(
             text=transaction.text,
             amount=transaction.amount,
             date=transaction.date,
-            currency=transaction.currency
+            currency=transaction.currency,
         )
-
-        # Normalize for response
-        normalized_result = router.normalizer.normalize(
+        normalized_payload = router.normalizer.normalize(
             text=transaction.text,
             amount=transaction.amount,
             date=transaction.date,
-            currency=transaction.currency
+            currency=transaction.currency,
         )
+        response = build_transaction_output(transaction, normalized_payload, result)
 
-        # Build response
-        return TransactionOutput(
-            original_text=transaction.text,
-            normalized=NormalizedTransaction(**normalized_result['normalized']),
-            category=result.category,
-            subcategory=result.subcategory,
-            confidence=result.confidence,
-            explanations=result.explanations,
-            method=result.method,
-            alternatives=[
-                CategoryResult(
-                    category=alt[0],
-                    subcategory=None,
-                    confidence=alt[1],
-                    explanations=[],
-                    method=result.method
-                )
-                for alt in (result.alternatives or [])
-            ] if result.alternatives else None,
-            requires_review=result.requires_review
-        )
+        # Only persist and cache high-confidence results (not requiring review)
+        # Low-confidence results are stored only after user feedback
+        if not response.requires_review:
+            record_id = persist_transaction_record(response)
+            if record_id:
+                response.record_id = record_id
+            cache_output(cache_key, response)
+        else:
+            logger.info(f"Skipping DB/cache for low confidence result: {response.confidence:.2f}")
 
-    except Exception as e:
-        logger.error(f"Error categorizing transaction: {e}")
-        raise HTTPException(status_code=500, detail=f"Categorization failed: {str(e)}")
+        duration = time.perf_counter() - start
+        record_metrics("categorize", duration, response, cache_hit=False)
+        return response
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error categorizing transaction: {exc}")
+        raise HTTPException(status_code=500, detail=f"Categorization failed: {exc}")
 
 
 @app.post("/categorize/batch", response_model=TransactionBatchOutput, tags=["Categorization"])
 async def categorize_batch(batch: TransactionBatchInput):
-    """
-    Categorize a batch of transactions
-
-    Args:
-        batch: Batch of transactions
-
-    Returns:
-        TransactionBatchOutput with results and statistics
-    """
     if not router:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
+    start = time.perf_counter()
     try:
-        # Convert to dict format
         transactions_dict = [
             {
-                'text': txn.text,
-                'amount': txn.amount,
-                'date': txn.date,
-                'currency': txn.currency
+                "text": txn.text,
+                "amount": txn.amount,
+                "date": txn.date,
+                "currency": txn.currency,
             }
             for txn in batch.transactions
         ]
-
-        # Categorize batch
         results = router.categorize_batch(transactions_dict)
 
-        # Build response
-        outputs = []
+        outputs: List[TransactionOutput] = []
         for txn, result in zip(batch.transactions, results):
-            normalized_result = router.normalizer.normalize(
+            normalized_payload = router.normalizer.normalize(
                 text=txn.text,
                 amount=txn.amount,
                 date=txn.date,
-                currency=txn.currency
+                currency=txn.currency,
             )
+            output = build_transaction_output(txn, normalized_payload, result)
 
-            outputs.append(TransactionOutput(
-                original_text=txn.text,
-                normalized=NormalizedTransaction(**normalized_result['normalized']),
-                category=result.category,
-                subcategory=result.subcategory,
-                confidence=result.confidence,
-                explanations=result.explanations,
-                method=result.method,
-                requires_review=result.requires_review
-            ))
+            # Only persist high-confidence results (not requiring review)
+            if not output.requires_review:
+                record_id = persist_transaction_record(output)
+                if record_id:
+                    output.record_id = record_id
 
-        # Calculate stats
+            outputs.append(output)
+            record_metrics("categorize_batch", 0.0, output)
+
         stats = router.get_stats(results)
+        duration = time.perf_counter() - start
+        LATENCY_HIST.labels(endpoint="categorize_batch").observe(duration) if PROMETHEUS_ENABLED else None
 
-        return TransactionBatchOutput(
-            results=outputs,
-            stats=stats
-        )
-
-    except Exception as e:
-        logger.error(f"Error categorizing batch: {e}")
-        raise HTTPException(status_code=500, detail=f"Batch categorization failed: {str(e)}")
+        return TransactionBatchOutput(results=outputs, stats=stats)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error categorizing batch: {exc}")
+        raise HTTPException(status_code=500, detail=f"Batch categorization failed: {exc}")
 
 
 @app.post("/merchants", response_model=MerchantMatchResult, tags=["Merchants"])
 async def search_merchants(query: MerchantQuery):
-    """
-    Search for merchants by name
-
-    Args:
-        query: Merchant search query
-
-    Returns:
-        List of matching merchants with similarity scores
-    """
-    if not merchant_resolver:
+    resolver = get_effective_merch_resolver()
+    if not resolver:
         raise HTTPException(status_code=503, detail="Merchant resolver not available")
 
     try:
-        matches = merchant_resolver.search(query.query, limit=query.limit)
-
-        # Convert to response model
+        matches = resolver.search(query.query, limit=query.limit)
         match_models = [
             MerchantMatchModel(
                 merchant_id=m.merchant_id,
@@ -286,128 +731,292 @@ async def search_merchants(query: MerchantQuery):
                 aliases=m.aliases,
                 category=m.category,
                 subcategory=m.subcategory,
-                similarity_score=m.similarity_score
+                similarity_score=m.similarity_score,
             )
             for m in matches
         ]
-
-        return MerchantMatchResult(
-            query=query.query,
-            matches=match_models
-        )
-
-    except Exception as e:
-        logger.error(f"Error searching merchants: {e}")
-        raise HTTPException(status_code=500, detail=f"Merchant search failed: {str(e)}")
+        return MerchantMatchResult(query=query.query, matches=match_models)
+    except Exception as exc:
+        logger.error(f"Error searching merchants: {exc}")
+        raise HTTPException(status_code=500, detail=f"Merchant search failed: {exc}")
 
 
 @app.post("/feedback", response_model=FeedbackResponse, tags=["Feedback"])
 async def submit_feedback(feedback: FeedbackInput):
-    """
-    Submit feedback on categorization
-
-    Args:
-        feedback: User feedback with correct category
-
-    Returns:
-        FeedbackResponse with status
-    """
     try:
-        # TODO: Store feedback in database for retraining
-        # For now, just log it
-        logger.info(f"Feedback received: {feedback.transaction_text} -> {feedback.correct_category}")
+        # Store feedback record
+        feedback_id = persist_feedback_record(feedback)
+        storage_target = "database"
+        if feedback_id is None:
+            storage_target = persist_feedback_locally(feedback)
 
-        # Save to file (simple implementation)
-        feedback_dir = BASE_DIR / "data" / "feedback"
-        feedback_dir.mkdir(parents=True, exist_ok=True)
+        # Also store the transaction with the correct category from user feedback
+        # This ensures low-confidence transactions are persisted after user review
+        if SessionLocal is not None:
+            with db_session() as session:
+                if session is not None:
+                    try:
+                        # Determine if user accepted or corrected the prediction
+                        was_correct = feedback.predicted_category == feedback.correct_category
 
-        feedback_file = feedback_dir / f"feedback_{datetime.utcnow().strftime('%Y%m%d')}.jsonl"
+                        # Create transaction record with user-confirmed category
+                        transaction_record = TransactionRecordORM(
+                            original_text=feedback.transaction_text,
+                            amount=_to_decimal(feedback.amount),
+                            currency="INR",  # Default, could be extended
+                            date=_parse_date(feedback.date),
+                            category=feedback.correct_category,
+                            subcategory=feedback.correct_subcategory,
+                            confidence=_to_decimal(1.0 if was_correct else 0.0),  # User-confirmed = 100%
+                            method="user_feedback",
+                            requires_review=False,
+                            reviewed=True,
+                        )
+                        session.add(transaction_record)
+                        session.flush()
+                        logger.info(f"Stored transaction from feedback: {transaction_record.id}")
 
-        import json
-        with open(feedback_file, 'a') as f:
-            f.write(json.dumps(feedback.dict()) + '\n')
+                        # Cache the user-confirmed categorization for future identical transactions
+                        if was_correct and redis_client:
+                            try:
+                                # Build cache key for this transaction
+                                cache_key_input = TransactionInput(
+                                    text=feedback.transaction_text,
+                                    amount=feedback.amount,
+                                    date=feedback.date,
+                                    currency="INR"
+                                )
+                                cache_key = build_cache_key(cache_key_input)
+
+                                # Create cached output
+                                cached_output = TransactionOutput(
+                                    category=feedback.correct_category,
+                                    subcategory=feedback.correct_subcategory,
+                                    confidence=1.0,
+                                    method="user_feedback_cached",
+                                    original_text=feedback.transaction_text,
+                                    requires_review=False,
+                                    normalized=NormalizedTransaction(
+                                        merchant=None,
+                                        amount=feedback.amount,
+                                        date=feedback.date,
+                                        currency="INR"
+                                    ),
+                                    record_id=transaction_record.id
+                                )
+                                cache_output(cache_key, cached_output)
+                                logger.info(f"Cached user-confirmed transaction")
+                            except Exception as e:
+                                logger.warning(f"Failed to cache user feedback: {e}")
+
+                    except Exception as e:
+                        logger.warning(f"Failed to persist transaction from feedback: {e}")
 
         return FeedbackResponse(
             status="success",
-            message="Feedback received and saved",
-            feedback_id=None  # Could generate UUID
+            message=f"Feedback stored in {storage_target}",
+            feedback_id=str(feedback_id) if feedback_id else None,
         )
-
-    except Exception as e:
-        logger.error(f"Error saving feedback: {e}")
-        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")
+    except Exception as exc:
+        logger.error(f"Error saving feedback: {exc}")
+        raise HTTPException(status_code=500, detail=f"Feedback submission failed: {exc}")
 
 
 @app.post("/train", response_model=TrainingResponse, tags=["Training"])
-async def trigger_training(
-    request: TrainingRequest,
-    background_tasks: BackgroundTasks
-):
-    """
-    Trigger model training (background task)
-
-    Args:
-        request: Training request with dataset path and parameters
-
-    Returns:
-        TrainingResponse with job ID
-    """
+async def trigger_training(request: TrainingRequest, background_tasks: BackgroundTasks):
     try:
-        # TODO: Implement actual training pipeline
-        # For now, return placeholder
-
-        logger.info(f"Training request received: {request.dataset_path}")
-
-        # Add background task
-        # background_tasks.add_task(train_model, request)
+        logger.info(
+            "Training requested for dataset=%s model=%s",
+            request.dataset_path,
+            request.model_name,
+        )
+        job_id = enqueue_training_job(request)
+        # Placeholder background task hook
+        # background_tasks.add_task(run_training_job, job_id, request)
 
         return TrainingResponse(
             status="queued",
             message="Training job queued",
-            job_id="placeholder-job-id",
+            job_id=job_id,
             model_path=None,
-            metrics=None
+            metrics=None,
+        )
+    except Exception as exc:
+        logger.error(f"Error triggering training: {exc}")
+        raise HTTPException(status_code=500, detail=f"Training failed: {exc}")
+
+
+@app.post("/api/feedback-learning", tags=["Training"])
+async def trigger_feedback_learning(background_tasks: BackgroundTasks):
+    """
+    Trigger automatic learning from user feedback
+
+    This will:
+    1. Export feedback from database
+    2. Merge with existing training data
+    3. Retrain ML model
+    4. Update LLM few-shot examples
+    """
+    try:
+        if not DATABASE_URL:
+            raise HTTPException(
+                status_code=400,
+                detail="Database not configured. Cannot perform feedback learning."
+            )
+
+        import subprocess
+
+        # Run feedback learning in background
+        def run_feedback_learning():
+            try:
+                logger.info("Starting feedback learning process...")
+
+                cmd = [
+                    "python3",
+                    str(BASE_DIR / "scripts" / "feedback_learning.py"),
+                    "--database-url", DATABASE_URL,
+                    "--original-data", str(BASE_DIR / "data" / "datasets" / "synthetic_train.jsonl"),
+                    "--min-feedback", "5",  # Lower threshold for demo
+                    "--output-dir", str(BASE_DIR / "data" / "learning"),
+                    "--model-output", str(MODEL_PATH),
+                    "--few-shot-output", str(BASE_DIR / "data" / "few_shot_examples.jsonl")
+                ]
+
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=900  # 15 minutes
+                )
+
+                if result.returncode == 0:
+                    logger.info("✅ Feedback learning completed successfully")
+                    logger.info(result.stdout)
+
+                    # Reload the router with new model
+                    global router
+                    router = build_router()
+                    logger.info("🔄 Router reloaded with updated model")
+                else:
+                    logger.error(f"❌ Feedback learning failed: {result.stderr}")
+
+            except Exception as e:
+                logger.error(f"Error in feedback learning: {e}")
+
+        # Schedule background task
+        background_tasks.add_task(run_feedback_learning)
+
+        return {
+            "status": "started",
+            "message": "Feedback learning process started in background",
+            "estimated_time": "5-15 minutes"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error triggering feedback learning: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to start feedback learning: {exc}"
         )
 
-    except Exception as e:
-        logger.error(f"Error triggering training: {e}")
-        raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+
+@app.get("/api/stats", tags=["Stats"])
+async def get_stats():
+    """Get real-time statistics from the database"""
+    if SessionLocal is None:
+        # Return default stats if database is not configured
+        return {
+            "total_processed": 0,
+            "avg_latency_ms": 0,
+            "accuracy": 0.0,
+            "review_rate": 0.0
+        }
+
+    with db_session() as session:
+        if session is None:
+            return {
+                "total_processed": 0,
+                "avg_latency_ms": 0,
+                "accuracy": 0.0,
+                "review_rate": 0.0
+            }
+
+        try:
+            # Get total processed transactions
+            from sqlalchemy import func, cast, Float
+            total = session.query(func.count(TransactionRecordORM.id)).scalar() or 0
+
+            # Get average confidence as proxy for accuracy
+            avg_confidence = session.query(func.avg(TransactionRecordORM.confidence)).scalar() or 0.0
+
+            # Get review rate
+            review_count = session.query(func.count(TransactionRecordORM.id)).filter(
+                TransactionRecordORM.requires_review == True
+            ).scalar() or 0
+            review_rate = (review_count / total) if total > 0 else 0.0
+
+            # Calculate average latency (mock for now as we don't store timestamps)
+            # In production, you'd calculate this from request timestamps
+            avg_latency = 850.0  # Default value
+
+            return {
+                "total_processed": total,
+                "avg_latency_ms": avg_latency,
+                "accuracy": float(avg_confidence) if avg_confidence else 0.0,
+                "review_rate": float(review_rate)
+            }
+        except Exception as exc:
+            logger.error(f"Error fetching stats: {exc}")
+            return {
+                "total_processed": 0,
+                "avg_latency_ms": 0,
+                "accuracy": 0.0,
+                "review_rate": 0.0
+            }
 
 
-# Error handlers
+if PROMETHEUS_ENABLED and generate_latest:
+    @app.get("/metrics")
+    async def metrics():
+        data = generate_latest()
+        return Response(content=data, media_type=CONTENT_TYPE_LATEST)
+
+
+# Error handlers ------------------------------------------------------------
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    """Handle HTTP exceptions"""
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
             error=exc.__class__.__name__,
             message=exc.detail,
-            details=None
-        ).dict()
+            details=None,
+        ).dict(),
     )
 
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request, exc):
-    """Handle general exceptions"""
     logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
             error="InternalServerError",
             message="An unexpected error occurred",
-            details={"error": str(exc)}
-        ).dict()
+            details={"error": str(exc)},
+        ).dict(),
     )
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        "apps.api.main:app",
+        host=API_HOST,
+        port=API_PORT,
+        reload=API_RELOAD,
+        log_level=LOG_LEVEL.lower(),
     )

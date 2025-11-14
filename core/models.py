@@ -131,6 +131,14 @@ class TransactionOutput(BaseModel):
         default=False,
         description="Whether this transaction requires human review"
     )
+    record_id: Optional[int] = Field(
+        default=None,
+        description="Database identifier when persistence is enabled"
+    )
+    ensemble_votes: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Raw vote data when the ensemble router is used"
+    )
 
     class Config:
         schema_extra = {
@@ -151,7 +159,15 @@ class TransactionOutput(BaseModel):
                     "pattern=UPI:ZOMATO"
                 ],
                 "method": "hybrid",
-                "requires_review": False
+                "requires_review": False,
+                "record_id": 42,
+                "ensemble_votes": {
+                    "rule": {"category": "Food & Dining", "confidence": 0.9},
+                    "ml": {"category": "Food & Dining", "confidence": 0.91},
+                    "llm": {"category": "Food & Dining", "confidence": 0.87},
+                    "agreement_count": 3,
+                    "total_methods": 3
+                }
             }
         }
 
