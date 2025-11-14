@@ -128,7 +128,8 @@ def train_classifier(
 
     # Calculate accuracy
     correct = 0
-    for i, (pred_cat, _) in enumerate(predictions):
+    for i, pred_list in enumerate(predictions):
+        pred_cat, _ = pred_list[0]  # Get first prediction (top-1)
         if pred_cat == val_labels[i]:
             correct += 1
 
@@ -139,7 +140,8 @@ def train_classifier(
     category_correct = {}
     category_total = {}
 
-    for i, (pred_cat, _) in enumerate(predictions):
+    for i, pred_list in enumerate(predictions):
+        pred_cat, _ = pred_list[0]  # Get first prediction (top-1)
         true_cat = val_labels[i]
 
         if true_cat not in category_total:
