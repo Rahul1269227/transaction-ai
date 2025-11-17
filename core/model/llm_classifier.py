@@ -44,6 +44,8 @@ class LLMClassifier:
         self.taxonomy_path = taxonomy_path
         self.few_shot_examples = few_shot_examples or []
         self.categories = []
+        self._service_unavailable = False  # Track if service is down
+        self._error_logged = False  # Only log error once
 
         # Load taxonomy if provided
         if taxonomy_path:
@@ -85,11 +87,16 @@ class LLMClassifier:
 Available Categories:
 {categories_str}
 
+IMPORTANT DISTINCTIONS:
+- Bills: Recurring utility payments (electricity, water, phone, internet bills), EMI payments, credit card bills. These are regular payments for services or loans.
+- Fees & Charges: One-time bank charges, transaction fees, penalties, service fees. These are charges levied by banks or institutions, NOT utility bills.
+
 Instructions:
-1. Analyze the transaction description and amount
-2. Choose the MOST appropriate category from the list above
-3. Provide a confidence score (0.0 to 1.0)
-4. Explain your reasoning briefly
+1. Analyze the transaction description and amount carefully
+2. Distinguish between Bills (utility/service payments) and Fees & Charges (bank/institution fees)
+3. Choose the MOST appropriate category from the list above
+4. Provide a confidence score (0.0 to 1.0) - be conservative if uncertain
+5. Explain your reasoning briefly
 
 Response Format (JSON only, no extra text):
 {{
@@ -147,9 +154,9 @@ Response Format (JSON only, no extra text):
                     "prompt": prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.1,  # Low temperature for consistency
-                        "top_p": 0.9,
-                        "num_predict": 200
+                        "temperature": 0.05,  # Very low temperature for maximum consistency
+                        "top_p": 0.8,  # Lower for more focused responses
+                        "num_predict": 150  # Shorter responses for faster inference
                     }
                 },
                 timeout=timeout
@@ -190,12 +197,22 @@ Response Format (JSON only, no extra text):
                 logger.error(f"JSON parse error: {e}, response: {llm_output}")
                 return "Other", 0.5, "Invalid JSON from LLM"
 
+        except requests.exceptions.ConnectionError as e:
+            # LLM service not available - only log once
+            if not self._service_unavailable:
+                self._service_unavailable = True
+                logger.warning(f"LLM service unavailable at {self.ollama_url} - will gracefully degrade to rules+ML only")
+            return None, 0.0, "LLM unavailable"
         except requests.exceptions.Timeout:
-            logger.error("LLM request timeout")
-            return "Other", 0.3, "LLM timeout"
+            if not self._error_logged:
+                logger.warning("LLM request timeout - may be slow or overloaded")
+                self._error_logged = True
+            return None, 0.0, "LLM timeout"
         except Exception as e:
-            logger.error(f"LLM prediction error: {e}")
-            return "Other", 0.3, f"Error: {str(e)}"
+            if not self._error_logged:
+                logger.warning(f"LLM prediction error: {e} - will gracefully degrade")
+                self._error_logged = True
+            return None, 0.0, f"Error: {str(e)}"
 
     def _find_closest_category(self, category: str) -> str:
         """Find closest matching category from taxonomy"""

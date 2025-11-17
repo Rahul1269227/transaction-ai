@@ -1,0 +1,226 @@
+{
+  "dashboard": {
+    "title": "Transaction AI - Overview",
+    "tags": ["transaction-ai", "ml", "categorization"],
+    "timezone": "browser",
+    "schemaVersion": 16,
+    "version": 1,
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "type": "graph",
+        "title": "Request Rate (requests/sec)",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_requests_total[1m])) by (endpoint)",
+            "legendFormat": "{{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Requests/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "type": "graph",
+        "title": "Response Latency (p50, p95, p99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(categorization_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(categorization_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(categorization_latency_seconds_bucket[5m])) by (le))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "s", "label": "Latency"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 8},
+        "type": "singlestat",
+        "title": "Total Requests (24h)",
+        "targets": [
+          {
+            "expr": "sum(increase(categorization_requests_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "format": "none",
+        "valueName": "current"
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 8},
+        "type": "singlestat",
+        "title": "Avg Latency (5m)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(categorization_latency_seconds_bucket[5m])) by (le))",
+            "refId": "A"
+          }
+        ],
+        "format": "s",
+        "valueName": "current"
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 8},
+        "type": "singlestat",
+        "title": "Review Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_requires_review_total[10m])) / sum(rate(categorization_requests_total[10m])) * 100",
+            "refId": "A"
+          }
+        ],
+        "format": "percent",
+        "valueName": "current",
+        "thresholds": "20,40",
+        "colors": ["#299c46", "#e0b400", "#d44a3a"]
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 8},
+        "type": "singlestat",
+        "title": "Ensemble Agreement",
+        "targets": [
+          {
+            "expr": "ensemble_agreement_ratio * 100",
+            "refId": "A"
+          }
+        ],
+        "format": "percent",
+        "valueName": "current",
+        "thresholds": "60,80",
+        "colors": ["#d44a3a", "#e0b400", "#299c46"]
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12},
+        "type": "graph",
+        "title": "Method Usage Distribution",
+        "targets": [
+          {
+            "expr": "sum(rate(method_usage_total[5m])) by (method)",
+            "legendFormat": "{{method}}",
+            "refId": "A"
+          }
+        ],
+        "stack": true,
+        "yaxes": [
+          {"format": "ops", "label": "Usage/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12},
+        "type": "graph",
+        "title": "Cache Hit/Miss Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_cache_events_total{result=\"hit\"}[5m]))",
+            "legendFormat": "Cache Hits",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(categorization_cache_events_total{result=\"miss\"}[5m]))",
+            "legendFormat": "Cache Misses",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          {"format": "ops", "label": "Events/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+        "type": "graph",
+        "title": "CPU Usage",
+        "targets": [
+          {
+            "expr": "100 - (avg by (instance) (irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "CPU %", "max": 100},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 10,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20},
+        "type": "graph",
+        "title": "Memory Usage",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "Memory Used %",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "percent", "label": "Memory %", "max": 100},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 11,
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 28},
+        "type": "table",
+        "title": "Recent Categorizations by Method",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (method) (rate(method_usage_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "transform": "table",
+        "styles": [
+          {
+            "pattern": "method",
+            "type": "string",
+            "alias": "Method"
+          },
+          {
+            "pattern": "Value",
+            "type": "number",
+            "unit": "ops",
+            "alias": "Rate (ops/s)",
+            "decimals": 2
+          }
+        ]
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    }
+  }
+}

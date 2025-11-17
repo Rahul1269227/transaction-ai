@@ -224,9 +224,12 @@ class EnsembleRouter:
                 text=text,
                 amount=amount
             )
+            # Handle LLM service unavailable (returns None)
+            if category is None or confidence == 0.0:
+                return None
             return (category, confidence, reasoning)
         except Exception as e:
-            logger.error(f"LLM classifier error: {e}")
+            logger.warning(f"LLM classifier error: {e}")
             return None
 
     def _ensemble_vote(
@@ -246,20 +249,32 @@ class EnsembleRouter:
         Returns:
             Final CategorizationResult
         """
+        # Log individual method results
+        logger.info("=== ENSEMBLE VOTING DETAILS ===")
+        logger.info(f"Rule result: {rule_result[0] if rule_result else 'None'} (conf: {rule_result[1] if rule_result else 0:.3f}, weight: {self.rule_weight})")
+        logger.info(f"ML result:   {ml_result[0] if ml_result else 'None'} (conf: {ml_result[1] if ml_result else 0:.3f}, weight: {self.ml_weight})")
+        logger.info(f"LLM result:  {llm_result[0] if llm_result else 'None'} (conf: {llm_result[1] if llm_result else 0:.3f}, weight: {self.llm_weight})")
+
         # Collect votes with weights
         votes = {}
 
         if rule_result:
             category, conf, expl, subcat = rule_result
-            votes[category] = votes.get(category, 0) + (conf * self.rule_weight)
+            weighted_vote = conf * self.rule_weight
+            votes[category] = votes.get(category, 0) + weighted_vote
+            logger.info(f"  → Rule votes for '{category}': {weighted_vote:.4f}")
 
         if ml_result:
             category, conf, alts = ml_result
-            votes[category] = votes.get(category, 0) + (conf * self.ml_weight)
+            weighted_vote = conf * self.ml_weight
+            votes[category] = votes.get(category, 0) + weighted_vote
+            logger.info(f"  → ML votes for '{category}': {weighted_vote:.4f}")
 
         if llm_result:
             category, conf, reasoning = llm_result
-            votes[category] = votes.get(category, 0) + (conf * self.llm_weight)
+            weighted_vote = conf * self.llm_weight
+            votes[category] = votes.get(category, 0) + weighted_vote
+            logger.info(f"  → LLM votes for '{category}': {weighted_vote:.4f}")
 
         if not votes:
             # No methods available
@@ -324,6 +339,13 @@ class EnsembleRouter:
             "agreement_count": agreement_count,
             "total_methods": num_methods
         }
+
+        # Log final decision
+        logger.info(f"All votes: {votes}")
+        logger.info(f"Winner: '{winner_category}' with score {winner_score:.4f}")
+        logger.info(f"Agreement: {agreement_count}/{num_methods} methods agreed")
+        logger.info(f"Final confidence: {final_confidence:.3f} (method: {method})")
+        logger.info("=" * 35)
 
         return CategorizationResult(
             category=winner_category,
