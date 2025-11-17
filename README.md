@@ -84,6 +84,8 @@ cd transaction-ai
 cp .env.example .env
 ```
 
+**Note**: Training data (`data/balanced/`) is now included in the repository, so you can start training immediately!
+
 ### 2. Start with Docker (Recommended)
 
 ```bash
@@ -148,7 +150,7 @@ curl -X POST http://localhost:8000/categorize \
   "method": "ensemble_unanimous",
   "explanations": [
     "keyword=zomato",
-    "ml_embedding_classifier",
+    "ml_embedding_classifier",f
     "llm_reasoning: Food delivery transaction based on merchant name"
   ],
   "requires_review": false
