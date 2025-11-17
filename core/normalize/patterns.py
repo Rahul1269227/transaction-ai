@@ -109,6 +109,8 @@ class TransactionPatterns:
 
     # Merchant patterns
     MERCHANT_PATTERNS = [
+        # TO MERCHANT (payment to merchant) - HIGHEST PRIORITY
+        re.compile(r'\bTO\s+([A-Z][A-Z0-9\s]+)', re.IGNORECASE),
         # MERCHANT*PAY or MERCHANT-PAY
         re.compile(r'([A-Za-z0-9]+)[\*\-](?:PAY|PAYMENT|PMT)', re.IGNORECASE),
         # Common merchant prefixes

@@ -97,22 +97,42 @@ class LLMClassifier:
 Available Categories:
 {categories_str}
 
-IMPORTANT DISTINCTIONS:
-- Bills: Recurring utility payments (electricity, water, phone, internet bills), EMI payments, credit card bills. These are regular payments for services or loans.
-- Fees & Charges: One-time bank charges, transaction fees, penalties, service fees. These are charges levied by banks or institutions, NOT utility bills.
+CRITICAL RULES FOR CATEGORIZATION:
+
+1. **Payment Direction Understanding**:
+   - "TO <merchant>" or "PAID TO <merchant>" = PURCHASE transaction
+   - "FROM <merchant>" = REFUND or INCOME
+   - Wallet payments TO merchants = PURCHASES in the merchant's category
+
+2. **Category Distinctions**:
+   - **Shopping**: E-commerce platforms (Amazon, Flipkart, Myntra, Cloudtail), retail stores, online marketplaces
+   - **Bills**: Recurring utility payments (electricity, water, phone, internet), EMI, credit card bills
+   - **Fees & Charges**: Bank charges, penalties, service fees (NOT merchant payments)
+   - **Transfers/UPI**: Person-to-person transfers, account transfers (NOT merchant payments)
+
+3. **Merchant Recognition**:
+   - E-commerce sellers (like Cloudtail, Appario, RetailNet) → Shopping
+   - Payment wallets (PayTM, PhonePe, GPay) used TO pay merchants → Use merchant's category
+   - Unknown merchants with "TO <name>" pattern → Likely Shopping or Services
+
+4. **Context Clues**:
+   - Transaction IDs, reference numbers → Not fees
+   - "Subscription", "monthly", "plan" → Bills or Entertainment
+   - Specific merchant names → Research semantic meaning
 
 Instructions:
-1. Analyze the transaction description and amount carefully
-2. Distinguish between Bills (utility/service payments) and Fees & Charges (bank/institution fees)
-3. Choose the MOST appropriate category from the list above
-4. Provide a confidence score (0.0 to 1.0) - be conservative if uncertain
-5. Explain your reasoning briefly
+1. Analyze the transaction text for payment direction (TO/FROM)
+2. Identify any merchant names mentioned
+3. Understand the transaction's PURPOSE, not just keywords
+4. Choose the MOST appropriate category based on semantic meaning
+5. Provide a confidence score (0.0 to 1.0)
+6. Explain your reasoning clearly
 
 Response Format (JSON only, no extra text):
 {{
     "category": "category_name",
     "confidence": 0.95,
-    "reasoning": "brief explanation"
+    "reasoning": "brief explanation of why this category fits"
 }}
 
 """

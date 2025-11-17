@@ -318,13 +318,33 @@ class EnsembleRouter:
             methods_voted.append("llm")
             explanations.append(f"llm_reasoning: {llm_result[2][:100]}")
 
-        # Calculate agreement bonus
+        # FIX #3: BETTER CONFIDENCE CALIBRATION
+        # Calculate agreement metrics
         num_methods = sum([rule_result is not None, ml_result is not None, llm_result is not None])
         agreement_count = len(methods_voted)
-        agreement_bonus = (agreement_count - 1) * 0.1  # +10% for each additional agreeing method
 
-        # Final confidence (capped at 1.0)
-        final_confidence = min(1.0, winner_score + agreement_bonus)
+        # Stronger rewards/penalties based on agreement
+        if num_methods >= 2:
+            if agreement_count == num_methods:
+                # Full agreement: +20% boost (was +10%)
+                agreement_adjustment = 0.20
+                logger.info(f"Full agreement ({agreement_count}/{num_methods}): +20% confidence boost")
+            elif agreement_count >= 2:
+                # Partial agreement (2+ methods): +10% boost
+                agreement_adjustment = 0.10
+                logger.info(f"Partial agreement ({agreement_count}/{num_methods}): +10% confidence boost")
+            elif agreement_count == 1:
+                # No agreement: -15% penalty (winner is alone)
+                agreement_adjustment = -0.15
+                logger.info(f"No agreement ({agreement_count}/{num_methods}): -15% confidence penalty")
+            else:
+                agreement_adjustment = 0.0
+        else:
+            # Only one method available
+            agreement_adjustment = 0.0
+
+        # Final confidence with calibration (capped at 0.05-1.0)
+        final_confidence = max(0.05, min(1.0, winner_score + agreement_adjustment))
 
         # Determine method string
         if agreement_count == num_methods and num_methods > 1:
@@ -424,23 +444,27 @@ class EnsembleRouter:
                 merchant_subcategory = match.subcategory
                 merchant_confidence = match.similarity_score
 
-        # MERCHANT-FIRST STRATEGY: High-confidence merchant matches should dominate
-        if merchant_confidence >= 0.85:
-            logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%})")
+        # FIX #1: MERCHANT-FIRST STRATEGY - Merchant matches should dominate
+        # Lower threshold to 0.70 for fuzzy matches (already high-quality from gazetteer)
+        # Boost confidence to 95% when merchant is clearly identified
+        if merchant_confidence >= 0.70:
+            # Boost confidence for merchant matches (they're highly reliable)
+            boosted_confidence = min(0.95, merchant_confidence + 0.10)
+            logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%} -> {boosted_confidence:.2%})")
             return CategorizationResult(
                 category=merchant_category,
                 subcategory=merchant_subcategory,
-                confidence=merchant_confidence,
+                confidence=boosted_confidence,
                 method="merchant_gazetteer",
                 explanations=[f"merchant_match={resolved_merchant}"],
                 requires_review=False,
                 merchant_resolved=resolved_merchant,
                 ensemble_votes={
-                    "merchant": {"category": merchant_category, "confidence": merchant_confidence},
+                    "merchant": {"category": merchant_category, "confidence": boosted_confidence},
                     "rule": None,
                     "ml": None,
                     "llm": None,
-                    "weighted_votes": {merchant_category: merchant_confidence},
+                    "weighted_votes": {merchant_category: boosted_confidence},
                     "agreement_count": 1,
                     "total_methods": 1
                 }
@@ -451,12 +475,41 @@ class EnsembleRouter:
         ml_result = None
         llm_result = None
 
+        # Try rule-based first for potential early exit
+        if self.rule_categorizer:
+            rule_result = self._run_rule_categorizer(
+                search_text, resolved_merchant or merchant, channel, amount
+            )
+
+            # HIGH-CONFIDENCE RULE EARLY EXIT (deterministic rules like ATM, EMI, Salary, Fuel)
+            if rule_result and rule_result[1] >= 0.95:
+                logger.info(f"High-confidence deterministic rule: {rule_result[0]} ({rule_result[1]:.2%}) - skipping ML/LLM")
+                return CategorizationResult(
+                    category=rule_result[0],
+                    subcategory=rule_result[3],
+                    confidence=rule_result[1],
+                    method="rule_deterministic",
+                    explanations=rule_result[2],
+                    requires_review=False,
+                    merchant_resolved=resolved_merchant,
+                    ensemble_votes={
+                        "rule": {"category": rule_result[0], "confidence": rule_result[1]},
+                        "ml": None,
+                        "llm": None,
+                        "weighted_votes": {rule_result[0]: rule_result[1]},
+                        "agreement_count": 1,
+                        "total_methods": 1
+                    }
+                )
+
         if self.enable_parallel and self.executor:
             # Parallel execution with per-method timeouts
             futures = {}
             timeouts = {}
 
-            if self.rule_categorizer:
+            # Don't re-run rule if we already ran it for early exit check
+            # (rule_result will be None if not run, or < 0.95 if run but didn't exit)
+            if self.rule_categorizer and rule_result is None:
                 futures['rule'] = self.executor.submit(
                     self._run_rule_categorizer,
                     search_text, resolved_merchant or merchant, channel, amount
@@ -470,9 +523,10 @@ class EnsembleRouter:
                 )
                 timeouts['ml'] = 5.0  # ML is moderately fast
 
-            # FAST MODE: Only run LLM if fast_mode is disabled OR if rule+ML don't agree
+            # FIX #2: LLM AS FALLBACK - Only run LLM when ML confidence is low
+            # Wait for rule and ML first, then decide if LLM is needed
             should_skip_llm = False
-            if self.fast_mode and self.llm_classifier:
+            if self.llm_classifier:
                 # Wait for rule and ML first
                 rule_result = None
                 ml_result = None
@@ -487,21 +541,29 @@ class EnsembleRouter:
                                 ml_result = result
                         except (TimeoutError, Exception) as e:
                             logger.warning(f"{method} method failed: {e}")
-                
-                # Check if rule+ML agree with high confidence
-                if rule_result and ml_result:
-                    # Extract from tuple results (both methods return tuples)
+
+                # Skip LLM if:
+                # 1. Fast mode + Rule+ML agree with high confidence (>= 90%)
+                # 2. ML confidence alone is >= 60% (LLM fallback threshold)
+                if self.fast_mode and rule_result and ml_result:
+                    # Extract from tuple results
                     rule_cat = rule_result[0]
                     rule_conf = rule_result[1]
                     ml_cat = ml_result[0]
                     ml_conf = ml_result[1]
-                    
+
                     # Check agreement and confidence
                     if rule_cat == ml_cat and rule_conf >= self.fast_mode_threshold and ml_conf >= self.fast_mode_threshold:
                         should_skip_llm = True
                         min_conf = min(rule_conf, ml_conf)
                         logger.info(f"Fast mode: Rule+ML agree on '{rule_cat}' with confidence {min_conf:.2f} - skipping LLM")
-                        # Results already set above, continue to skip LLM
+
+                # Also skip if ML confidence is high enough (LLM fallback logic)
+                if not should_skip_llm and ml_result:
+                    ml_conf = ml_result[1]
+                    if ml_conf >= 0.60:  # 60% threshold for ML confidence
+                        should_skip_llm = True
+                        logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= 0.60 - skipping LLM")
 
             if self.llm_classifier and not should_skip_llm:
                 futures['llm'] = self.executor.submit(
@@ -532,22 +594,34 @@ class EnsembleRouter:
                 search_text, resolved_merchant or merchant, channel, amount
             )
             ml_result = self._run_ml_classifier(search_text, normalized)
-            
-            # FAST MODE: Skip LLM if rule+ML agree with high confidence
-            if self.fast_mode:
-                if rule_result and ml_result:
-                    # Extract from tuple results
-                    rule_cat = rule_result[0]
-                    rule_conf = rule_result[1]
-                    ml_cat = ml_result[0]
-                    ml_conf = ml_result[1]
-                    
-                    if rule_cat == ml_cat and rule_conf >= self.fast_mode_threshold and ml_conf >= self.fast_mode_threshold:
-                        logger.info(f"Fast mode: Rule+ML agree on '{rule_cat}' - skipping LLM")
-                        llm_result = None
-                    else:
-                        llm_result = self._run_llm_classifier(text, amount)
+
+            # FIX #2: LLM AS FALLBACK - Only run when needed
+            should_skip_llm = False
+
+            # Check fast mode first (Rule+ML agreement)
+            if self.fast_mode and rule_result and ml_result:
+                # Extract from tuple results
+                rule_cat = rule_result[0]
+                rule_conf = rule_result[1]
+                ml_cat = ml_result[0]
+                ml_conf = ml_result[1]
+
+                if rule_cat == ml_cat and rule_conf >= self.fast_mode_threshold and ml_conf >= self.fast_mode_threshold:
+                    should_skip_llm = True
+                    logger.info(f"Fast mode: Rule+ML agree on '{rule_cat}' - skipping LLM")
+
+            # Also check ML confidence threshold (LLM fallback logic)
+            if not should_skip_llm and ml_result:
+                ml_conf = ml_result[1]
+                if ml_conf >= 0.60:  # 60% threshold
+                    should_skip_llm = True
+                    logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= 0.60 - skipping LLM")
+
+            # Run LLM only if needed
+            if should_skip_llm:
+                llm_result = None
             else:
+                logger.info("Running LLM as fallback for low-confidence prediction")
                 llm_result = self._run_llm_classifier(text, amount)
 
         # Step 4: Ensemble voting

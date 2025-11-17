@@ -325,11 +325,14 @@ class FeatureExtractor:
             'contains_education': any(kw in text_lower for kw in ['school', 'college', 'tuition', 'course', 'education', 'exam']),
             'contains_investment': any(kw in text_lower for kw in ['mutual fund', 'sip', 'investment', 'stocks', 'shares']),
 
-            # Temporal features
+            # Temporal features (ENHANCED)
             'day_of_month': FeatureExtractor._extract_day_of_month(date_str),
+            'day_of_week': FeatureExtractor._extract_day_of_week(date_str),  # 0=Monday, 6=Sunday
             'is_month_end': FeatureExtractor._is_month_end(date_str),
+            'is_month_start': FeatureExtractor._is_month_start(date_str),  # First 5 days
             'is_weekend': FeatureExtractor._is_weekend(date_str),
             'month': FeatureExtractor._extract_month(date_str),
+            'quarter': FeatureExtractor._extract_quarter(date_str),  # Q1/Q2/Q3/Q4
 
             # Pattern-based features
             'starts_with_upi': cleaned_text.upper().startswith('UPI'),
@@ -411,6 +414,42 @@ class FeatureExtractor:
             return dt.day >= 25
         except:
             return False
+
+    @staticmethod
+    def _extract_day_of_week(date_str: Optional[str]) -> int:
+        """Extract day of week (0=Monday, 6=Sunday)"""
+        if not date_str:
+            return 0
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.weekday()
+        except:
+            return 0
+
+    @staticmethod
+    def _is_month_start(date_str: Optional[str]) -> bool:
+        """Check if date is near month start (first 5 days)"""
+        if not date_str:
+            return False
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.day <= 5
+        except:
+            return False
+
+    @staticmethod
+    def _extract_quarter(date_str: Optional[str]) -> int:
+        """Extract quarter (1-4) from date"""
+        if not date_str:
+            return 0
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return (dt.month - 1) // 3 + 1  # Q1=1, Q2=2, Q3=3, Q4=4
+        except:
+            return 0
 
     @staticmethod
     def _is_weekend(date_str: Optional[str]) -> bool:
