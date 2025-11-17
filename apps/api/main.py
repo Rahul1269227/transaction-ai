@@ -922,6 +922,78 @@ async def trigger_feedback_learning(background_tasks: BackgroundTasks):
         )
 
 
+@app.post("/api/batch-categorize", tags=["Categorization"])
+async def batch_categorize_simple(request: Dict[str, List[str]]):
+    """
+    Simplified batch categorization endpoint for UI
+    Accepts array of transaction strings with 5-minute timeout
+    """
+    if not router:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    transactions = request.get("transactions", [])
+    if not transactions:
+        raise HTTPException(status_code=400, detail="No transactions provided")
+
+    if len(transactions) > 1000:
+        raise HTTPException(status_code=400, detail="Maximum 1000 transactions per batch")
+
+    start = time.perf_counter()
+    results = []
+
+    try:
+        for idx, txn_text in enumerate(transactions):
+            try:
+                # Categorize each transaction
+                result = router.categorize(
+                    text=txn_text,
+                    amount=None,
+                    date=None,
+                    currency="INR",
+                )
+
+                # Build successful result
+                results.append({
+                    "transaction": txn_text,
+                    "category": result.category,
+                    "subcategory": result.subcategory,
+                    "confidence": float(result.confidence),
+                    "method": result.method,
+                    "status": "success"
+                })
+
+                # Log progress for large batches
+                if (idx + 1) % 10 == 0:
+                    logger.info(f"Processed {idx + 1}/{len(transactions)} transactions")
+
+            except Exception as exc:
+                logger.warning(f"Error categorizing transaction '{txn_text[:50]}...': {exc}")
+                results.append({
+                    "transaction": txn_text,
+                    "category": "Unknown",
+                    "subcategory": None,
+                    "confidence": 0.0,
+                    "method": "error",
+                    "status": "error",
+                    "error_message": str(exc)
+                })
+
+        duration = time.perf_counter() - start
+        logger.info(f"Batch categorization completed: {len(transactions)} transactions in {duration:.2f}s")
+
+        return {
+            "results": results,
+            "total": len(transactions),
+            "successful": sum(1 for r in results if r["status"] == "success"),
+            "failed": sum(1 for r in results if r["status"] == "error"),
+            "duration_seconds": duration
+        }
+
+    except Exception as exc:
+        logger.error(f"Error in batch categorization: {exc}")
+        raise HTTPException(status_code=500, detail=f"Batch categorization failed: {exc}")
+
+
 @app.get("/api/stats", tags=["Stats"])
 async def get_stats():
     """Get real-time statistics from the database"""

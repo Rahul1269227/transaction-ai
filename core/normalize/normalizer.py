@@ -250,59 +250,171 @@ class FeatureExtractor:
     @staticmethod
     def extract_features(normalized_txn: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Extract features from normalized transaction
+        Extract enhanced features from normalized transaction
         Returns dict of features suitable for ML models
         """
         pattern_match = normalized_txn.get('pattern_match', {})
         normalized = normalized_txn.get('normalized', {})
         cleaned_text = normalized_txn.get('cleaned_text', '')
+        search_text = normalized_txn.get('search_text', cleaned_text)
+        text_lower = cleaned_text.lower()
+
+        amount = normalized.get('amount', 0) or 0
+        merchant = pattern_match.get('merchant', '')
+        channel = pattern_match.get('channel', '')
+        date_str = normalized.get('date')
 
         features = {
             # Channel features
-            'is_upi': pattern_match.get('channel') == 'UPI',
-            'is_imps': pattern_match.get('channel') == 'IMPS',
-            'is_neft': pattern_match.get('channel') == 'NEFT',
-            'is_pos': pattern_match.get('channel') == 'POS',
-            'is_atm': pattern_match.get('channel') == 'ATM',
-            'is_card': pattern_match.get('channel') == 'CARD',
-            'has_channel': pattern_match.get('channel') is not None,
+            'is_upi': channel == 'UPI',
+            'is_imps': channel == 'IMPS',
+            'is_neft': channel == 'NEFT',
+            'is_pos': channel == 'POS',
+            'is_atm': channel == 'ATM',
+            'is_card': channel == 'CARD',
+            'has_channel': channel is not None and channel != '',
 
             # Merchant features
-            'has_merchant': pattern_match.get('merchant') is not None,
-            'merchant_length': len(pattern_match.get('merchant', '')) if pattern_match.get('merchant') else 0,
+            'has_merchant': merchant is not None and merchant != '',
+            'merchant_length': len(merchant) if merchant else 0,
+            'has_numbers_in_merchant': bool(re.search(r'\d', merchant)) if merchant else False,
+            'merchant_word_count': len(merchant.split()) if merchant else 0,
 
-            # Amount features
-            'amount': normalized.get('amount', 0),
-            'amount_bucket': FeatureExtractor._get_amount_bucket(normalized.get('amount')),
+            # Amount features (enhanced)
+            'amount': amount,
+            'amount_log': FeatureExtractor._safe_log(amount),
+            'amount_sqrt': FeatureExtractor._safe_sqrt(amount),
+            'amount_bucket': FeatureExtractor._get_amount_bucket(amount),
+            'is_round_amount': amount > 0 and amount % 100 == 0,
+            'is_round_amount_50': amount > 0 and amount % 50 == 0,
+            'amount_rounded_to_100': round(amount / 100) * 100 if amount > 0 else 0,
+            'amount_digits': len(str(int(amount))) if amount > 0 else 0,
 
-            # Text features
+            # Text features (enhanced)
             'text_length': len(cleaned_text),
             'word_count': len(cleaned_text.split()),
             'has_numbers': bool(re.search(r'\d', cleaned_text)),
+            'has_special_chars': bool(re.search(r'[^\w\s]', cleaned_text)),
             'has_reference': pattern_match.get('reference') is not None,
             'has_location': pattern_match.get('location') is not None,
+            'uppercase_ratio': sum(1 for c in cleaned_text if c.isupper()) / max(len(cleaned_text), 1),
+            'digit_ratio': sum(1 for c in cleaned_text if c.isdigit()) / max(len(cleaned_text), 1),
+
+            # N-gram features (bigrams for common patterns)
+            'has_bigram_bill_payment': 'bill payment' in text_lower or 'billpayment' in text_lower,
+            'has_bigram_fee_charge': any(phrase in text_lower for phrase in ['fee charge', 'service charge', 'penalty charge']),
+            'has_bigram_utility_bill': any(phrase in text_lower for phrase in ['utility bill', 'electricity bill', 'water bill', 'phone bill']),
+            'has_bigram_card_payment': 'card payment' in text_lower or 'cardpayment' in text_lower,
+            'has_bigram_online_order': 'online order' in text_lower or 'onlineorder' in text_lower,
+
+            # Category-specific keyword features (enhanced)
+            'contains_fuel': any(kw in text_lower for kw in ['hpcl', 'iocl', 'bpcl', 'petrol', 'fuel', 'diesel', 'gas']),
+            'contains_food': any(kw in text_lower for kw in ['zomato', 'swiggy', 'food', 'restaurant', 'cafe', 'dining']),
+            'contains_grocery': any(kw in text_lower for kw in ['bigbasket', 'blinkit', 'zepto', 'grocery', 'dmart', 'supermarket']),
+            'contains_transport': any(kw in text_lower for kw in ['uber', 'ola', 'rapido', 'cab', 'taxi', 'auto', 'rickshaw']),
+            'contains_bills': any(kw in text_lower for kw in ['bill', 'utility', 'electricity', 'water', 'phone', 'internet', 'bsnl', 'airtel', 'jio']),
+            'contains_fees': any(kw in text_lower for kw in ['fee', 'charge', 'penalty', 'service charge', 'bank charge']),
+            'contains_shopping': any(kw in text_lower for kw in ['amazon', 'flipkart', 'myntra', 'shopping', 'purchase', 'order']),
+            'contains_entertainment': any(kw in text_lower for kw in ['netflix', 'prime', 'hotstar', 'spotify', 'movie', 'cinema']),
+            'contains_health': any(kw in text_lower for kw in ['hospital', 'doctor', 'pharmacy', 'medical', 'medicine', 'clinic']),
+            'contains_education': any(kw in text_lower for kw in ['school', 'college', 'tuition', 'course', 'education', 'exam']),
+            'contains_investment': any(kw in text_lower for kw in ['mutual fund', 'sip', 'investment', 'stocks', 'shares']),
+
+            # Temporal features
+            'day_of_month': FeatureExtractor._extract_day_of_month(date_str),
+            'is_month_end': FeatureExtractor._is_month_end(date_str),
+            'is_weekend': FeatureExtractor._is_weekend(date_str),
+            'month': FeatureExtractor._extract_month(date_str),
 
             # Pattern-based features
-            'contains_fuel': any(kw in cleaned_text.lower() for kw in ['hpcl', 'iocl', 'bpcl', 'petrol', 'fuel']),
-            'contains_food': any(kw in cleaned_text.lower() for kw in ['zomato', 'swiggy', 'food', 'restaurant']),
-            'contains_grocery': any(kw in cleaned_text.lower() for kw in ['bigbasket', 'blinkit', 'grocery', 'dmart']),
-            'contains_transport': any(kw in cleaned_text.lower() for kw in ['uber', 'ola', 'cab', 'taxi']),
+            'starts_with_upi': cleaned_text.upper().startswith('UPI'),
+            'starts_with_imps': cleaned_text.upper().startswith('IMPS'),
+            'starts_with_neft': cleaned_text.upper().startswith('NEFT'),
+            'starts_with_pos': cleaned_text.upper().startswith('POS'),
+            'starts_with_atm': cleaned_text.upper().startswith('ATM'),
+            'contains_at': ' AT ' in cleaned_text.upper() or ' AT ' in cleaned_text,
+            'contains_to': ' TO ' in cleaned_text.upper() or ' to ' in text_lower,
+            'contains_ref': 'ref' in text_lower or 'reference' in text_lower,
         }
 
         return features
 
     @staticmethod
-    def _get_amount_bucket(amount: Optional[float]) -> str:
-        """Bucket amount into categories"""
-        if amount is None:
-            return 'unknown'
+    def _safe_log(value: float) -> float:
+        """Safe logarithm"""
+        import math
+        if value > 0:
+            return math.log1p(value)
+        return 0.0
+
+    @staticmethod
+    def _safe_sqrt(value: float) -> float:
+        """Safe square root"""
+        import math
+        if value >= 0:
+            return math.sqrt(value)
+        return 0.0
+
+    @staticmethod
+    def _get_amount_bucket(amount: Optional[float]) -> int:
+        """Bucket amount into numeric categories (better for ML)"""
+        if amount is None or amount == 0:
+            return 0
         elif amount < 100:
-            return 'very_small'
+            return 1  # very_small
         elif amount < 500:
-            return 'small'
+            return 2  # small
         elif amount < 2000:
-            return 'medium'
+            return 3  # medium
         elif amount < 10000:
-            return 'large'
+            return 4  # large
         else:
-            return 'very_large'
+            return 5  # very_large
+
+    @staticmethod
+    def _extract_day_of_month(date_str: Optional[str]) -> int:
+        """Extract day of month from date string"""
+        if not date_str:
+            return 0
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.day
+        except:
+            return 0
+
+    @staticmethod
+    def _extract_month(date_str: Optional[str]) -> int:
+        """Extract month from date string"""
+        if not date_str:
+            return 0
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.month
+        except:
+            return 0
+
+    @staticmethod
+    def _is_month_end(date_str: Optional[str]) -> bool:
+        """Check if date is near month end (last 5 days)"""
+        if not date_str:
+            return False
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.day >= 25
+        except:
+            return False
+
+    @staticmethod
+    def _is_weekend(date_str: Optional[str]) -> bool:
+        """Check if date is weekend"""
+        if not date_str:
+            return False
+        try:
+            from datetime import datetime
+            dt = datetime.strptime(date_str, '%Y-%m-%d')
+            return dt.weekday() >= 5  # Saturday = 5, Sunday = 6
+        except:
+            return False

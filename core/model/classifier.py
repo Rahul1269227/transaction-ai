@@ -156,6 +156,7 @@ class EmbeddingClassifier:
         labels: List[str],
         handcrafted_features: Optional[List[Dict[str, Any]]] = None,
         calibrate: bool = True,
+        class_weights: Optional[dict] = None,
         **kwargs
     ):
         """
@@ -166,6 +167,7 @@ class EmbeddingClassifier:
             labels: Training labels (category names)
             handcrafted_features: Optional handcrafted features
             calibrate: Whether to calibrate probabilities
+            class_weights: Optional dict of class weights {class_name: weight}
             **kwargs: Additional parameters for classifier
         """
         # Extract features
@@ -174,14 +176,51 @@ class EmbeddingClassifier:
         # Encode labels
         y = self.label_encoder.fit_transform(labels)
 
+        # Handle class weights
+        weight_param = None
+        if class_weights:
+            # Convert class name weights to encoded weights
+            weight_dict = {}
+            for class_name, weight in class_weights.items():
+                try:
+                    class_idx = self.label_encoder.transform([class_name])[0]
+                    weight_dict[class_idx] = weight
+                except:
+                    pass
+            weight_param = weight_dict
+        else:
+            # Check for class imbalance
+            from collections import Counter
+            label_counts = Counter(labels)
+            is_imbalanced = len(set(labels)) > 1 and (
+                max(label_counts.values()) / min(label_counts.values()) > 2
+            )
+            weight_param = 'balanced' if is_imbalanced else None
+
         # Train classifier
         if self.classifier_type == "lightgbm" and LIGHTGBM_AVAILABLE:
+            # Ensure num_leaves is compatible with max_depth
+            max_depth = kwargs.get('max_depth', 10)
+            num_leaves = kwargs.get('num_leaves', None)
+
+            # If num_leaves is not explicitly set, calculate it based on max_depth
+            if num_leaves is None:
+                # Use 2^(max_depth-1) as a good default to avoid warnings
+                num_leaves = min(2**(max_depth - 1), 4095)  # Cap at 4095 for performance
+
             self.classifier = lgb.LGBMClassifier(
-                n_estimators=kwargs.get('n_estimators', 100),
-                learning_rate=kwargs.get('learning_rate', 0.1),
-                max_depth=kwargs.get('max_depth', 7),
-                num_leaves=kwargs.get('num_leaves', 31),
-                random_state=42
+                n_estimators=kwargs.get('n_estimators', 200),
+                learning_rate=kwargs.get('learning_rate', 0.05),
+                max_depth=max_depth,
+                num_leaves=num_leaves,
+                min_child_samples=kwargs.get('min_child_samples', 20),
+                subsample=kwargs.get('subsample', 0.8),
+                colsample_bytree=kwargs.get('colsample_bytree', 0.8),
+                reg_alpha=kwargs.get('reg_alpha', 0.1),
+                reg_lambda=kwargs.get('reg_lambda', 0.1),
+                class_weight=weight_param,
+                random_state=42,
+                verbose=-1
             )
         elif XGBOOST_AVAILABLE:
             import xgboost as xgb
