@@ -96,7 +96,7 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - TAXONOMY_PATH=/app/data/taxonomy.yaml
       - GAZETTEER_PATH=/app/data/gazetteer/merchant_aliases.csv
-      - MODEL_PATH=/app/models/classifier
+      - MODEL_PATH=/app/models/transaction_classifier_balanced
       - LLM_URL=http://llm-service:11434
       - LLM_MODEL=llama3.1:8b
       - USE_ENSEMBLE=true
