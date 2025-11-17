@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Activity, CheckCircle, XCircle, RefreshCw } from 'lucide-react'
+import { API_ENDPOINTS } from '@/lib/config'
 
 export default function HealthDashboard() {
   const [health, setHealth] = useState<any>(null)
@@ -10,7 +11,7 @@ export default function HealthDashboard() {
   const fetchHealth = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/health')
+      const response = await fetch(API_ENDPOINTS.health)
       const data = await response.json()
       setHealth(data)
     } catch (error) {

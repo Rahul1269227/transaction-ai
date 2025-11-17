@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Send, CheckCircle } from 'lucide-react'
+import { API_ENDPOINTS } from '@/lib/config'
 
 export default function FeedbackForm() {
   const [formData, setFormData] = useState({
@@ -18,7 +19,7 @@ export default function FeedbackForm() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/feedback', {
+      const response = await fetch(API_ENDPOINTS.feedback, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

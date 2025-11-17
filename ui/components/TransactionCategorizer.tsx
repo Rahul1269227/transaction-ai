@@ -39,7 +39,7 @@ export default function TransactionCategorizer() {
     setShowFeedback(false)
     setFeedbackSubmitted(false) // Reset feedback status for new categorization
     try {
-      const response = await fetch('/api/categorize', {
+      const response = await fetch(API_ENDPOINTS.categorize, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
