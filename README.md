@@ -580,7 +580,20 @@ llm-service:
    ollama pull llama3.1:8b
    ```
 
-4. **Generate Training Data**
+4. **Training Data Sources**
+
+   The project uses two data sources:
+
+   **A. Pre-balanced Dataset (Included - Ready to Use)**
+   ```bash
+   # Already available in repository
+   data/balanced/train.jsonl       # 48,493 balanced samples
+   data/balanced/val.jsonl         # 10,391 balanced samples
+   data/balanced/test.jsonl        # 10,391 balanced samples
+   data/balanced/class_weights.json # Pre-computed class weights
+   ```
+
+   **B. Synthetic Dataset Generation (Optional)**
    ```bash
    python scripts/generate_dataset.py \
      --num-samples 10000 \
@@ -592,7 +605,37 @@ llm-service:
    - `synthetic_val.jsonl` (2,218 samples)
    - `synthetic_test.jsonl` (2,218 samples)
 
-5. **Train ML Classifier**
+   **C. Kaggle Real Transaction Data (Optional Enhancement)**
+
+   The project includes a Kaggle bank transactions dataset (`data/raw/bank_transactions.csv`) that can be labeled and used for training:
+
+   ```bash
+   # Label Kaggle data using rule-based + LLM classification
+   python scripts/label_real_data.py
+   ```
+
+   This creates `data/labeled/real_transactions_labeled.csv` with automatically classified transactions. You can then:
+   - Use it to supplement training data
+   - Validate model performance on real-world data
+   - Fine-tune the model with actual transaction patterns
+
+   **Note**: Requires `OPENAI_API_KEY` for LLM-based labeling (optional - falls back to rule-based only)
+
+5. **Prepare Balanced Dataset (Optional - Already Included)**
+
+   If you want to regenerate the balanced dataset:
+   ```bash
+   python scripts/prepare_balanced_dataset.py \
+     --input data/datasets/synthetic_train.jsonl \
+     --output data/balanced
+   ```
+
+   This creates:
+   - Balanced train/val/test splits
+   - Class weight calculations
+   - Statistical analysis
+
+6. **Train ML Classifier**
 
    **Basic Training (Quick):**
    ```bash
@@ -602,26 +645,14 @@ llm-service:
      --output models/classifier
    ```
 
-   **Production Training (Recommended):**
+   **Production Training (Recommended - Balanced Dataset):**
    ```bash
    python scripts/train_model.py \
      --train data/balanced/train.jsonl \
      --val data/balanced/val.jsonl \
      --output models/transaction_classifier_balanced \
-     --n-estimators 300 \
-     --learning-rate 0.05 \
-     --max-depth 8 \
-     --num-leaves 128 \
-     --no-balance
-   ```
-
-   **Advanced Training with Custom Parameters:**
-   ```bash
-   python scripts/train_model.py \
-     --train data/balanced/train.jsonl \
-     --val data/balanced/val.jsonl \
-     --output models/classifier_advanced \
      --class-weights data/balanced/class_weights.json \
+     --encoder sentence-transformers/all-MiniLM-L6-v2 \
      --n-estimators 300 \
      --learning-rate 0.05 \
      --max-depth 12 \
@@ -631,6 +662,19 @@ llm-service:
      --colsample-bytree 0.8 \
      --reg-alpha 0.1 \
      --reg-lambda 0.1 \
+     --no-balance
+   ```
+
+   **Quick Training (Faster, Lower Performance):**
+   ```bash
+   python scripts/train_model.py \
+     --train data/balanced/train.jsonl \
+     --val data/balanced/val.jsonl \
+     --output models/classifier_quick \
+     --n-estimators 100 \
+     --learning-rate 0.1 \
+     --max-depth 8 \
+     --num-leaves 128 \
      --no-balance
    ```
 
@@ -649,10 +693,10 @@ llm-service:
    Training samples: 48493
    Validation samples: 10391
    Validation Accuracy: 0.9626
-   Model saved to models/classifier
+   Model saved to models/transaction_classifier_balanced
    ```
 
-6. **Start API Server**
+7. **Start API Server**
    ```bash
    cd apps/api
    python main.py
