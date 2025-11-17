@@ -1,0 +1,537 @@
+# Transaction AI - Cursor Rules
+
+## Project Overview
+Transaction AI is a production-ready financial transaction categorization system using ensemble ML (Rules + ML + LLM). Built with FastAPI, SQLAlchemy, Redis, and Docker.
+
+## Project Structure
+
+```
+transaction-ai/
+├── apps/api/              # FastAPI application and endpoints
+├── core/                  # Core business logic
+│   ├── model/            # ML models (classifier, ensemble router, LLM)
+│   ├── normalize/        # Text normalization and feature extraction
+│   ├── rules/            # Rule-based categorization engine
+│   ├── resolve/          # Merchant resolution/gazetteer
+│   ├── auth.py           # Authentication and rate limiting
+│   ├── explainability.py # Explanation service
+│   ├── active_learning.py # Active learning/uncertainty sampling
+│   ├── multitenancy.py   # Multi-tenant support
+│   ├── exports.py        # Export integrations
+│   └── models.py         # Pydantic schemas
+├── data/                 # Data files (taxonomy, gazetteer, datasets)
+├── scripts/              # Training and utility scripts
+├── tests/                # Test suite
+├── evals/                # Evaluation framework
+├── infra/                # Docker and infrastructure configs
+└── ui/                   # Next.js frontend
+```
+
+## Code Style & Conventions
+
+### Python Style
+- Follow PEP 8 with line length of 100 characters
+- Use type hints for all function parameters and return types
+- Use `Optional[T]` for nullable types, not `T | None` (Python 3.9+ compatibility)
+- Prefer `Path` from `pathlib` over string paths
+- Use f-strings for string formatting
+- Use `logger` from `logging` module, never `print()` in production code
+
+### Import Organization
+```python
+# Standard library imports
+import os
+import sys
+from pathlib import Path
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+# Third-party imports
+from fastapi import FastAPI, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel, Field
+
+# Local imports (use absolute imports from repo root)
+from core.model import EnsembleRouter
+from core.models import TransactionInput, TransactionOutput
+from core.normalize import TransactionNormalizer
+```
+
+### Module Docstrings
+Every module must start with a docstring:
+```python
+"""
+Module Name
+Brief description of what this module does
+"""
+```
+
+### Function Docstrings
+Use Google-style docstrings:
+```python
+def categorize_transaction(
+    text: str,
+    amount: Optional[float] = None
+) -> TransactionOutput:
+    """
+    Categorize a transaction using ensemble methods
+    
+    Args:
+        text: Transaction description text
+        amount: Transaction amount (optional)
+        
+    Returns:
+        TransactionOutput with category and confidence
+        
+    Raises:
+        ValueError: If text is empty
+        HTTPException: If categorization fails
+    """
+```
+
+## API Design Patterns (FastAPI)
+
+### Endpoint Structure
+```python
+@app.post("/endpoint", response_model=ResponseModel, tags=["Category"])
+async def endpoint_name(
+    request: RequestModel,
+    background_tasks: BackgroundTasks,
+    api_key_info: Optional[Dict] = Depends(require_auth),  # Optional auth
+    rate_limit_info: Optional[Dict] = Depends(check_rate_limit),
+    db: Session = Depends(get_db)
+) -> ResponseModel:
+    """
+    Endpoint description
+    
+    - Use async/await for I/O operations
+    - Use Pydantic models for request/response validation
+    - Include proper error handling with HTTPException
+    - Use background_tasks for non-blocking operations
+    """
+```
+
+### Error Handling
+```python
+try:
+    result = some_operation()
+except SpecificException as e:
+    logger.error(f"Operation failed: {e}", exc_info=True)
+    raise HTTPException(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        detail=f"Operation failed: {str(e)}"
+    )
+```
+
+### Response Models
+- Always define response models using Pydantic
+- Include examples in model Config
+- Use Field() for validation and descriptions
+- Return proper HTTP status codes
+
+## Database Patterns (SQLAlchemy)
+
+### ORM Models
+```python
+class ModelORM(Base):
+    __tablename__ = "table_name"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+```
+
+### Database Sessions
+```python
+# Always use context managers or dependency injection
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# In endpoints
+db = SessionLocal()
+try:
+    # operations
+    db.commit()
+except Exception:
+    db.rollback()
+    raise
+finally:
+    db.close()
+```
+
+## Core Module Patterns
+
+### Model Classes (core/model/)
+- Use dataclasses for result objects
+- Implement `__str__` and `__repr__` methods
+- Include confidence scores and explanations
+- Support batch processing
+
+### Normalization (core/normalize/)
+- Return normalized dicts with consistent structure
+- Handle edge cases (None, empty strings, invalid formats)
+- Use regex patterns from `patterns.py`
+- Extract features consistently
+
+### Rules Engine (core/rules/)
+- Use YAML taxonomy for configuration
+- Compile regex patterns once at initialization
+- Return RuleMatch dataclass with confidence
+- Support merchant-first strategy
+
+### Feature Extraction
+- Return Dict[str, Any] with consistent keys
+- Use numeric types for ML features (int, float, bool)
+- Include both raw and derived features
+- Document feature meanings
+
+## Logging Standards
+
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Use appropriate levels
+logger.debug("Detailed debugging info")
+logger.info("General information")
+logger.warning("Warning message")
+logger.error("Error occurred", exc_info=True)  # Include traceback
+logger.critical("Critical failure")
+```
+
+### Logging Format
+- Include context (transaction_id, user_id, etc.)
+- Use structured logging when possible
+- Don't log sensitive data (API keys, passwords)
+- Log at module level: `logger = logging.getLogger(__name__)`
+
+## Testing Patterns
+
+### Test File Structure
+```python
+"""
+Tests for module_name
+"""
+import pytest
+from core.module import ClassName
+
+class TestClassName:
+    def test_method_name(self):
+        """Test description"""
+        # Arrange
+        instance = ClassName()
+        
+        # Act
+        result = instance.method()
+        
+        # Assert
+        assert result == expected_value
+```
+
+### Test Naming
+- Test files: `test_*.py`
+- Test classes: `TestClassName`
+- Test methods: `test_*` or `test_*_should_*`
+
+### Test Organization
+- Use fixtures for common setup
+- Mock external dependencies (Redis, DB, LLM)
+- Test both success and failure cases
+- Include edge cases and boundary conditions
+
+## Configuration & Environment
+
+### Environment Variables
+- Use `os.getenv()` with defaults
+- Validate required variables at startup
+- Use `bool_from_env()` helper for boolean flags
+- Document all env vars in `.env.example`
+
+### Path Resolution
+```python
+def resolve_path(path_str: Optional[str], fallback: Path) -> Path:
+    """Resolve relative paths relative to BASE_DIR"""
+    if not path_str:
+        return fallback
+    candidate = Path(path_str)
+    return candidate if candidate.is_absolute() else (BASE_DIR / candidate)
+```
+
+## Error Handling Patterns
+
+### Validation Errors
+```python
+from pydantic import ValidationError
+
+try:
+    model = TransactionInput(**data)
+except ValidationError as e:
+    raise HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        detail=e.errors()
+    )
+```
+
+### Service Errors
+```python
+# Fail gracefully - log and return appropriate error
+try:
+    result = service.operation()
+except ServiceUnavailableError:
+    logger.warning("Service unavailable, using fallback")
+    result = fallback_operation()
+except Exception as e:
+    logger.error(f"Unexpected error: {e}", exc_info=True)
+    raise HTTPException(status_code=500, detail="Internal server error")
+```
+
+## Performance Considerations
+
+### Caching
+- Use Redis for response caching
+- Cache key format: `cache:{hash_of_input}`
+- Set appropriate TTLs
+- Invalidate on updates
+
+### Async Operations
+- Use `async/await` for I/O-bound operations
+- Use `BackgroundTasks` for non-critical work
+- Use `ThreadPoolExecutor` for CPU-bound parallel tasks
+
+### Database Queries
+- Use indexes on frequently queried columns
+- Avoid N+1 queries (use eager loading)
+- Use pagination for large result sets
+- Close sessions properly
+
+## Security Patterns
+
+### Authentication
+- Use API keys for service-to-service auth
+- Validate API keys before processing
+- Include tenant context in all operations
+- Never log sensitive data
+
+### Input Validation
+- Always validate input with Pydantic models
+- Sanitize user input
+- Use parameterized queries (SQLAlchemy handles this)
+- Validate file uploads
+
+### Rate Limiting
+- Implement per-user/organization rate limits
+- Return rate limit headers
+- Use sliding window algorithm
+- Fail open if Redis unavailable (log warning)
+
+## Documentation Standards
+
+### Code Comments
+- Explain "why", not "what" (code should be self-documenting)
+- Document complex algorithms
+- Include examples for public APIs
+- Update comments when code changes
+
+### README Updates
+- Document new features
+- Include usage examples
+- Update API documentation
+- Keep setup instructions current
+
+## Module-Specific Guidelines
+
+### core/model/ensemble_router.py
+- Use parallel execution for independent methods
+- Implement fast mode for high-confidence cases
+- Return CategorizationResult dataclass
+- Include ensemble_votes for transparency
+
+### core/normalize/normalizer.py
+- Normalize unicode to ASCII
+- Extract structured fields (merchant, channel, amount)
+- Create search_text for embeddings
+- Handle various date/amount formats
+
+### apps/api/main.py
+- Use dependency injection for DB sessions
+- Implement health checks
+- Include Prometheus metrics
+- Handle CORS properly
+- Use proper HTTP status codes
+
+### scripts/train_model.py
+- Support data augmentation
+- Implement class balancing
+- Use enhanced hyperparameters
+- Save metrics and feature importance
+
+## Type Hints
+
+### Required Types
+- All function parameters
+- All return types
+- Class attributes (use `ClassVar` for class variables)
+- Module-level variables when type isn't obvious
+
+### Common Patterns
+```python
+from typing import Optional, List, Dict, Any, Tuple, Union
+from pathlib import Path
+from datetime import datetime
+
+def process(
+    items: List[Dict[str, Any]],
+    config: Optional[Dict[str, Any]] = None
+) -> Tuple[List[str], int]:
+    """Process items and return results"""
+    pass
+```
+
+## Code Organization
+
+### File Structure
+- One class per file (unless closely related)
+- Group related functions in modules
+- Keep files under 500 lines when possible
+- Use `__init__.py` for package exports
+
+### Function Length
+- Keep functions under 50 lines
+- Extract complex logic to helper functions
+- Use descriptive function names
+- Single responsibility principle
+
+## Git Conventions
+
+### Commit Messages
+- Use present tense: "Add feature" not "Added feature"
+- Include scope: "core: Add explainability service"
+- Reference issues: "Fix #123: Bills taxonomy keywords"
+- Keep first line under 72 characters
+
+### Branch Naming
+- Feature: `feature/feature-name`
+- Bugfix: `fix/bug-description`
+- Hotfix: `hotfix/critical-fix`
+
+## Testing Requirements
+
+### Coverage
+- Aim for 80%+ code coverage
+- Test all public APIs
+- Test error cases
+- Test edge cases
+
+### Test Organization
+- Unit tests in `tests/`
+- Integration tests in `tests/integration/`
+- E2E tests in `tests/e2e/`
+- Use pytest fixtures for setup
+
+## Performance Benchmarks
+
+### Target Metrics
+- API latency: <900ms (ensemble), <100ms (fast mode)
+- Throughput: 100+ req/s
+- Cache hit rate: >80%
+- Database query time: <50ms
+
+### Monitoring
+- Use Prometheus metrics
+- Log performance metrics
+- Track error rates
+- Monitor resource usage
+
+## Code Review Checklist
+
+Before submitting code:
+- [ ] Type hints on all functions
+- [ ] Docstrings for public APIs
+- [ ] Error handling for all operations
+- [ ] Logging at appropriate levels
+- [ ] Tests for new functionality
+- [ ] No hardcoded values (use config/env)
+- [ ] Follows project structure
+- [ ] No sensitive data in logs/code
+- [ ] Proper HTTP status codes
+- [ ] Database transactions handled correctly
+
+## Common Patterns to Follow
+
+### Initialization Pattern
+```python
+# Global state
+service: Optional[ServiceType] = None
+
+def init_service(config: Dict):
+    """Initialize service"""
+    global service
+    service = ServiceType(config)
+    logger.info("Service initialized")
+```
+
+### Singleton Pattern (when needed)
+```python
+class Service:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+```
+
+### Factory Pattern
+```python
+def create_router(router_type: str) -> RouterType:
+    """Factory for creating routers"""
+    if router_type == "ensemble":
+        return EnsembleRouter(...)
+    elif router_type == "hybrid":
+        return HybridRouter(...)
+    else:
+        raise ValueError(f"Unknown router type: {router_type}")
+```
+
+## Anti-Patterns to Avoid
+
+❌ Don't use `eval()` or `exec()`
+❌ Don't catch bare `Exception` (be specific)
+❌ Don't use mutable default arguments
+❌ Don't ignore exceptions silently
+❌ Don't use `print()` in production code
+❌ Don't hardcode paths (use Path and BASE_DIR)
+❌ Don't commit secrets or API keys
+❌ Don't use `*` imports (except for __init__.py)
+❌ Don't mix sync and async without proper handling
+❌ Don't create circular imports
+
+## When Adding New Features
+
+1. **Create module** in appropriate directory (`core/`, `apps/api/`, etc.)
+2. **Add type hints** and docstrings
+3. **Write tests** before or alongside implementation
+4. **Update documentation** (README, API docs)
+5. **Add to __init__.py** if it's a public API
+6. **Update requirements.txt** if adding dependencies
+7. **Add environment variables** to `.env.example`
+8. **Update health checks** if adding new services
+9. **Add Prometheus metrics** if applicable
+10. **Follow existing patterns** in similar modules
+
+## Questions to Ask
+
+Before implementing:
+- Does this fit the existing architecture?
+- Can I reuse existing code?
+- Is this the right module/package?
+- Are there similar patterns I should follow?
+- What are the error cases?
+- How should this be tested?
+- What metrics should be tracked?
+- Is this documented?
