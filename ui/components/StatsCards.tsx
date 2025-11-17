@@ -34,8 +34,8 @@ export default function StatsCards() {
     // Fetch initial stats
     fetchStats()
 
-    // Poll for updates every 5 seconds
-    const interval = setInterval(fetchStats, 5000)
+    // Poll for updates every 60 seconds (1 minute)
+    const interval = setInterval(fetchStats, 60000)
 
     return () => clearInterval(interval)
   }, [])
