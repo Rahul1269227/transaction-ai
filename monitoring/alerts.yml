@@ -1,0 +1,119 @@
+# Prometheus Alert Rules for Transaction AI
+groups:
+  - name: transaction_ai_alerts
+    interval: 30s
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum(rate(categorization_requests_total{endpoint="categorize"}[5m]))
+            -
+            sum(rate(categorization_requests_total{endpoint="categorize"}[5m]))
+          ) / sum(rate(categorization_requests_total{endpoint="categorize"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for the last 5 minutes"
+
+      # High review rate
+      - alert: HighReviewRate
+        expr: |
+          sum(rate(categorization_requires_review_total[10m]))
+          /
+          sum(rate(categorization_requests_total[10m])) > 0.3
+        for: 10m
+        labels:
+          severity: info
+          component: ml
+        annotations:
+          summary: "High manual review rate"
+          description: "More than 30% of transactions require manual review"
+
+      # High latency
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(categorization_latency_seconds_bucket[5m])) by (le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile latency is above 2 seconds"
+
+      # API down
+      - alert: APIDown
+        expr: up{job="transaction-ai-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "Transaction AI API is down"
+          description: "API has been down for more than 2 minutes"
+
+      # Low ensemble agreement
+      - alert: LowEnsembleAgreement
+        expr: ensemble_agreement_ratio < 0.6
+        for: 15m
+        labels:
+          severity: warning
+          component: ml
+        annotations:
+          summary: "Low ensemble agreement"
+          description: "Ensemble methods are agreeing less than 60% of the time"
+
+      # Cache issues
+      - alert: LowCacheHitRate
+        expr: |
+          sum(rate(categorization_cache_events_total{result="hit"}[10m]))
+          /
+          sum(rate(categorization_cache_events_total[10m])) < 0.2
+        for: 10m
+        labels:
+          severity: info
+          component: cache
+        annotations:
+          summary: "Low cache hit rate"
+          description: "Cache hit rate is below 20%"
+
+      # System resources
+      - alert: HighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is above 85%"
+
+      - alert: HighCPUUsage
+        expr: |
+          100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 10m
+        labels:
+          severity: warning
+          component: infrastructure
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is above 80% for 10 minutes"
+
+      # Disk space
+      - alert: LowDiskSpace
+        expr: |
+          (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}) * 100 < 15
+        for: 5m
+        labels:
+          severity: critical
+          component: infrastructure
+        annotations:
+          summary: "Low disk space"
+          description: "Less than 15% disk space remaining"

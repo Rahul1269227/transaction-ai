@@ -104,11 +104,12 @@ ui/
 │   ├── page.tsx            # Main dashboard
 │   └── globals.css         # Global styles
 ├── components/
-│   ├── StatsCards.tsx      # Statistics cards
-│   ├── CategorizationDemo.tsx
-│   ├── EnsembleVoting.tsx
-│   ├── HealthDashboard.tsx
-│   └── FeedbackForm.tsx
+│   ├── StatsCards.tsx           # Statistics cards
+│   ├── TransactionCategorizer.tsx  # Single transaction categorization
+│   ├── BatchUpload.tsx          # Batch processing
+│   ├── EnsembleVoting.tsx       # Voting visualization
+│   ├── HealthDashboard.tsx      # System health monitoring
+│   └── FeedbackForm.tsx         # User feedback
 ├── package.json
 ├── tsconfig.json
 ├── tailwind.config.ts

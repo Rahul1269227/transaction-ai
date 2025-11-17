@@ -24,6 +24,9 @@ A hybrid ensemble approach combining rule-based logic, ML embeddings, and LLM re
 - **18 Categories**: Comprehensive coverage from groceries to investments
 - **Multi-Channel**: UPI, IMPS, NEFT, POS, ATM, card transactions
 - **Persistent & Observable**: Automatic Postgres logging, Redis caching, and Prometheus metrics
+- **🆕 Premium UI**: Modern glassmorphic Next.js dashboard with real-time updates
+- **🆕 Batch Processing**: Upload & categorize thousands of transactions (TXT/CSV/JSON support)
+- **🆕 Full Monitoring**: Prometheus + Grafana with pre-built dashboards and alerts
 
 ---
 
@@ -152,7 +155,301 @@ curl -X POST http://localhost:8000/categorize \
 }
 ```
 
-**🎉 You're all set!** API is running at http://localhost:8000
+### 6. Start Frontend UI (Optional)
+
+```bash
+# Navigate to UI directory
+cd ui
+
+# Install dependencies (first time only)
+npm install
+
+# Start development server
+npm run dev
+
+# Access UI at http://localhost:3000
+```
+
+**🎉 You're all set!**
+- API: http://localhost:8000
+- Frontend: http://localhost:3000
+- API Docs: http://localhost:8000/docs
+
+---
+
+## 🎨 Premium Web UI
+
+### Modern Dashboard with Glassmorphic Design
+
+The system includes a production-ready Next.js UI with enterprise-grade design and user experience.
+
+#### Features
+
+✨ **Premium Design Elements**
+- Glassmorphic effects with backdrop blur
+- Smooth animations and transitions
+- Gradient accents throughout
+- Responsive on all devices
+- Dark mode support
+
+📊 **Live Demo Tab**
+- Real-time transaction categorization
+- Confidence visualization with animated progress bars
+- Method breakdown (Rule/ML/LLM)
+- AI reasoning explanations
+- Accept/Reject feedback buttons
+
+📁 **Batch Upload Tab** (NEW)
+- **Multiple Input Methods**: Paste text or upload files
+- **Format Support**: TXT, CSV, JSON (auto-detected)
+- **Smart Parsing**: Handles various JSON structures
+- **Progress Tracking**: Real-time batch processing status
+- **Results Table**: Premium table with status indicators
+- **CSV Export**: Download categorization results
+
+📈 **Stats Cards**
+- Real-time metrics from API
+- Gradient cards with hover effects
+- Total processed, latency, accuracy, review rate
+
+🔄 **Additional Tabs**
+- Ensemble Voting visualization
+- System Health monitoring
+- Feedback submission
+
+#### Quick Start
+
+```bash
+# Navigate to UI directory
+cd ui
+
+# Install dependencies (first time only)
+npm install
+
+# Start development server
+npm run dev
+
+# Access UI
+open http://localhost:3000
+```
+
+#### Production Build
+
+```bash
+# Build for production
+npm run build
+
+# Start production server
+npm start
+```
+
+#### File Format Examples
+
+**TXT Format** (one per line)
+```
+STARBUCKS COFFEE #12345
+NETFLIX SUBSCRIPTION
+UBER RIDE TO AIRPORT
+```
+
+**CSV Format** (first column as transaction)
+```csv
+transaction,amount,date
+"STARBUCKS COFFEE",12.50,2024-01-15
+"NETFLIX SUBSCRIPTION",15.99,2024-01-10
+```
+
+**JSON Format** (multiple structures supported)
+```json
+["STARBUCKS", "NETFLIX"]
+```
+or
+```json
+{"transactions": ["STARBUCKS", "NETFLIX"]}
+```
+or
+```json
+[
+  {"text": "STARBUCKS"},
+  {"transaction": "NETFLIX"}
+]
+```
+
+#### Batch Processing API
+
+The UI uses the new batch endpoint for efficient processing:
+
+```bash
+POST /api/batch-categorize
+Content-Type: application/json
+
+{
+  "transactions": ["txn1", "txn2", "txn3"]
+}
+```
+
+**Response:**
+```json
+{
+  "results": [
+    {
+      "transaction": "STARBUCKS COFFEE",
+      "category": "Food & Dining",
+      "confidence": 0.95,
+      "method": "ensemble_unanimous",
+      "status": "success"
+    }
+  ],
+  "total": 100,
+  "successful": 98,
+  "failed": 2,
+  "duration_seconds": 45.2
+}
+```
+
+**Features:**
+- Processes up to 1,000 transactions per batch
+- 5-minute timeout protection
+- Individual error handling (partial failures allowed)
+- Progress logging for large batches
+
+#### Test Files
+
+Sample test files are included:
+- `test_batch.txt` - Plain text format
+- `test_batch.csv` - CSV with headers
+- `test_batch.json` - JSON object format
+- `test_batch_array.json` - JSON array format
+
+---
+
+## 📊 Monitoring & Observability
+
+### Comprehensive Monitoring Stack
+
+Production-ready monitoring with Prometheus and Grafana, fully configured and ready to use.
+
+#### Quick Start Monitoring
+
+```bash
+# Start monitoring stack (one command)
+./start-monitoring.sh
+
+# Or manually
+docker-compose -f docker-compose.monitoring.yml up -d
+
+# Enable metrics in API (.env)
+PROMETHEUS_ENABLED=true
+```
+
+#### Access Dashboards
+
+- **Grafana**: http://localhost:3001 (admin/admin)
+- **Prometheus**: http://localhost:9090
+- **Node Exporter**: http://localhost:9100/metrics
+- **cAdvisor**: http://localhost:8080
+
+#### What's Included
+
+🎯 **Prometheus Metrics**
+- Request rates and volumes
+- Latency histograms (p50, p95, p99)
+- Method usage distribution
+- Ensemble agreement ratios
+- Cache hit/miss rates
+- Review rates
+- Error tracking
+
+📊 **Grafana Dashboard**
+
+Pre-configured dashboard with 11 visualization panels:
+
+1. **Request Rate** - Requests/sec by endpoint
+2. **Response Latency** - p50, p95, p99 percentiles
+3. **Total Requests** - 24-hour volume
+4. **Average Latency** - 5-minute rolling average
+5. **Review Rate** - Percentage requiring manual review
+6. **Ensemble Agreement** - Consensus gauge
+7. **Method Usage** - Distribution by method
+8. **Cache Performance** - Hit/miss rates
+9. **CPU Usage** - System resource tracking
+10. **Memory Usage** - RAM consumption
+11. **Recent Categorizations** - Method breakdown table
+
+🚨 **Pre-Configured Alerts**
+
+9 production-ready alerts:
+- High Error Rate (>5%)
+- High Review Rate (>30%)
+- High Latency (>2s at p95)
+- API Down
+- Low Ensemble Agreement (<60%)
+- Low Cache Hit Rate (<20%)
+- High Memory Usage (>85%)
+- High CPU Usage (>80%)
+- Low Disk Space (<15%)
+
+#### Available Metrics
+
+```promql
+# Request metrics
+categorization_requests_total{endpoint="categorize"}
+rate(categorization_requests_total[5m])
+
+# Latency metrics
+histogram_quantile(0.95, sum(rate(categorization_latency_seconds_bucket[5m])) by (le))
+
+# ML model metrics
+sum(rate(method_usage_total[5m])) by (method)
+ensemble_agreement_ratio
+
+# Cache metrics
+sum(rate(categorization_cache_events_total{result="hit"}[5m]))
+```
+
+#### Useful Queries
+
+**Cache Hit Rate:**
+```promql
+sum(rate(categorization_cache_events_total{result="hit"}[10m])) /
+sum(rate(categorization_cache_events_total[10m])) * 100
+```
+
+**Top 10 Slowest Requests:**
+```promql
+topk(10, histogram_quantile(0.95,
+  sum(rate(categorization_latency_seconds_bucket[5m])) by (le, endpoint)
+))
+```
+
+**Method Preference:**
+```promql
+sum by (method) (method_usage_total) /
+sum(method_usage_total) * 100
+```
+
+#### Monitoring Commands
+
+```bash
+# View logs
+docker-compose -f docker-compose.monitoring.yml logs -f grafana
+docker-compose -f docker-compose.monitoring.yml logs -f prometheus
+
+# Check status
+docker-compose -f docker-compose.monitoring.yml ps
+
+# Stop monitoring
+docker-compose -f docker-compose.monitoring.yml down
+
+# Restart services
+docker-compose -f docker-compose.monitoring.yml restart
+```
+
+#### Documentation
+
+- **Full Guide**: See [MONITORING.md](./MONITORING.md)
+- **Quick Reference**: See [MONITORING_QUICKSTART.md](./MONITORING_QUICKSTART.md)
+- **Testing**: Run `./test-system.sh` to verify everything works
 
 ---
 
@@ -294,6 +591,8 @@ llm-service:
    - `synthetic_test.jsonl` (2,218 samples)
 
 5. **Train ML Classifier**
+
+   **Basic Training (Quick):**
    ```bash
    python scripts/train_model.py \
      --train data/datasets/synthetic_train.jsonl \
@@ -301,10 +600,52 @@ llm-service:
      --output models/classifier
    ```
 
+   **Production Training (Recommended):**
+   ```bash
+   python scripts/train_model.py \
+     --train data/balanced/train.jsonl \
+     --val data/balanced/val.jsonl \
+     --output models/transaction_classifier_balanced \
+     --n-estimators 300 \
+     --learning-rate 0.05 \
+     --max-depth 8 \
+     --num-leaves 128 \
+     --no-balance
+   ```
+
+   **Advanced Training with Custom Parameters:**
+   ```bash
+   python scripts/train_model.py \
+     --train data/balanced/train.jsonl \
+     --val data/balanced/val.jsonl \
+     --output models/classifier_advanced \
+     --class-weights data/balanced/class_weights.json \
+     --n-estimators 300 \
+     --learning-rate 0.05 \
+     --max-depth 12 \
+     --num-leaves 2048 \
+     --min-child-samples 20 \
+     --subsample 0.8 \
+     --colsample-bytree 0.8 \
+     --reg-alpha 0.1 \
+     --reg-lambda 0.1 \
+     --no-balance
+   ```
+
+   **Parameter Guidelines:**
+   - `--n-estimators`: Number of boosting rounds (100-500, higher = better but slower)
+   - `--learning-rate`: Learning rate (0.01-0.1, lower = more robust)
+   - `--max-depth`: Maximum tree depth (6-15)
+   - `--num-leaves`: Number of leaves - **MUST be < 2^max_depth** to avoid warnings
+     - For `max_depth=8`: use `num_leaves=128` (2^7)
+     - For `max_depth=12`: use `num_leaves=2048` (2^11)
+   - `--no-balance`: Skip auto-balancing if data is already balanced
+   - `--class-weights`: Path to JSON file with class weights for imbalanced data
+
    Expected output:
    ```
-   Training samples: 11098
-   Validation samples: 2218
+   Training samples: 48493
+   Validation samples: 10391
    Validation Accuracy: 0.9626
    Model saved to models/classifier
    ```
@@ -522,6 +863,43 @@ merchant_id,canonical_name,aliases,category,subcategory
 
 ## 🧪 Testing & Evaluation
 
+### Automated System Tests
+
+Run comprehensive integration tests:
+
+```bash
+# Test all endpoints, batch processing, and monitoring
+./test-system.sh
+```
+
+This tests:
+- API health and endpoints
+- Single categorization
+- Batch categorization (new endpoint)
+- Stats endpoint
+- Prometheus metrics exposure
+- Grafana health
+- Node Exporter metrics
+- Batch file format support
+
+### UI Testing
+
+```bash
+# See UI testing checklist
+cat UI_TESTING.md
+
+# Start UI and test manually
+cd ui && npm run dev
+```
+
+Test checklist includes:
+- Premium design elements
+- Batch upload (TXT, CSV, JSON)
+- Format auto-detection
+- Progress tracking
+- Results table
+- CSV export
+
 ### Unit Tests
 
 Run the lightweight regression suite (normalizer, rule engine, router wiring):
@@ -651,6 +1029,39 @@ docker-compose up -d
 ---
 
 ## 🛠️ Troubleshooting
+
+### Issue: LightGBM Warning - "num_leaves OR 2^max_depth > num_leaves"
+
+**Symptoms:** Warning during training or inference:
+```
+[LightGBM] [Warning] Accuracy may be bad since you didn't explicitly set num_leaves OR 2^max_depth > num_leaves. (num_leaves=31).
+```
+
+**Cause:** Mismatch between `max_depth` and `num_leaves` parameters.
+
+**Solution:** Ensure `num_leaves < 2^max_depth`. Use these compatible combinations:
+
+| max_depth | Recommended num_leaves | Formula |
+|-----------|----------------------|---------|
+| 6 | 32 | 2^5 |
+| 8 | 128 | 2^7 |
+| 10 | 512 | 2^9 |
+| 12 | 2048 | 2^11 |
+
+**Fix existing model:**
+```bash
+# Retrain with correct parameters
+python scripts/train_model.py \
+  --train data/balanced/train.jsonl \
+  --val data/balanced/val.jsonl \
+  --output models/transaction_classifier_balanced \
+  --max-depth 8 \
+  --num-leaves 128 \
+  --n-estimators 300
+
+# Restart API to load new model
+cd infra && docker-compose restart api
+```
 
 ### Issue: LLM Service Not Starting
 
@@ -1027,13 +1438,18 @@ MIT License - see [LICENSE](LICENSE) file for details.
 - [x] True ensemble voting
 - [x] Docker deployment
 - [x] Comprehensive docs
+- [x] Premium Next.js UI with glassmorphism
+- [x] Batch upload (TXT/CSV/JSON support)
+- [x] Prometheus + Grafana monitoring
+- [x] Pre-configured dashboards and alerts
+- [x] Automated system tests
 
 ### v1.2 (Next)
 - [ ] Fine-tune LLM on real transaction data
 - [ ] Add subcategory prediction to ensemble
 - [ ] Active learning pipeline
-- [ ] React UI for human review
 - [ ] Multi-currency support
+- [ ] REST API authentication
 
 ### v2.0 (Future)
 - [ ] Real-time streaming (Kafka)
