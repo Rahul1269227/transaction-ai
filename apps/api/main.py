@@ -776,11 +776,36 @@ async def search_merchants(query: MerchantQuery):
 @app.post("/feedback", response_model=FeedbackResponse, tags=["Feedback"])
 async def submit_feedback(feedback: FeedbackInput):
     try:
-        # Store feedback record
+        # Store feedback record in database
         feedback_id = persist_feedback_record(feedback)
         storage_target = "database"
         if feedback_id is None:
             storage_target = persist_feedback_locally(feedback)
+
+        # ACTIVE LEARNING: Also store corrections in corrections.jsonl for retraining
+        corrections_dir = BASE_DIR / "data" / "corrections"
+        corrections_dir.mkdir(parents=True, exist_ok=True)
+        corrections_file = corrections_dir / "corrections.jsonl"
+
+        correction_entry = {
+            "text": feedback.transaction_text,
+            "predicted_category": feedback.predicted_category,
+            "correct_category": feedback.correct_category,
+            "predicted_subcategory": feedback.predicted_subcategory,
+            "correct_subcategory": feedback.correct_subcategory,
+            "confidence": None,  # Not available from feedback
+            "method": None,  # Not available from feedback
+            "timestamp": datetime.utcnow().isoformat(),
+            "was_incorrect": feedback.predicted_category != feedback.correct_category,
+            "amount": feedback.amount,
+            "date": feedback.date,
+        }
+
+        with open(corrections_file, "a", encoding="utf-8") as f:
+            json.dump(correction_entry, f)
+            f.write("\n")
+
+        logger.info(f"Stored correction: {feedback.predicted_category} -> {feedback.correct_category} (was_incorrect={correction_entry['was_incorrect']})")
 
         # Also store the transaction with the correct category from user feedback
         # This ensures low-confidence transactions are persisted after user review
