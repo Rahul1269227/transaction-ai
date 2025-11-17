@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts'
 import { Vote, Send, Loader2 } from 'lucide-react'
+import { API_ENDPOINTS } from '@/lib/config'
 
 export default function EnsembleVoting() {
   const [transaction, setTransaction] = useState('STARBUCKS COFFEE')
@@ -12,7 +13,7 @@ export default function EnsembleVoting() {
   const handleAnalyze = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/categorize', {
+      const response = await fetch(API_ENDPOINTS.categorize, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
