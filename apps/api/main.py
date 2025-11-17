@@ -61,6 +61,7 @@ from core.models import (  # noqa: E402
     TrainingResponse,
 )
 from core.resolve import MerchantResolver  # noqa: E402
+from core.preprocessor import preprocess_transaction  # noqa: E402
 
 RouterType = Union[HybridRouter, EnsembleRouter]
 Base = declarative_base()
@@ -631,6 +632,10 @@ async def categorize_transaction(transaction: TransactionInput):
     if not router:
         raise HTTPException(status_code=503, detail="Service not initialized")
 
+    # Preprocess transaction text to extract key information from JSON or clean plain text
+    processed_text = preprocess_transaction(transaction.text)
+    logger.debug(f"Preprocessed: {transaction.text[:100]}... -> {processed_text}")
+
     cache_key = build_cache_key(transaction)
     cached_output = fetch_cached_output(cache_key)
     if cached_output:
@@ -640,7 +645,7 @@ async def categorize_transaction(transaction: TransactionInput):
     start = time.perf_counter()
     try:
         result = router.categorize(
-            text=transaction.text,
+            text=processed_text,
             amount=transaction.amount,
             date=transaction.date,
             currency=transaction.currency,
