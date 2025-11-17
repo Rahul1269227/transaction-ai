@@ -93,9 +93,66 @@ class RuleCategorizer:
             RuleMatch if categorization successful, None otherwise
         """
         text_lower = text.lower()
+        text_upper = text.upper()
         matches: List[Tuple[str, float, List[str]]] = []  # (category_id, score, explanations)
 
-        # Strategy 1: Merchant-based categorization (highest priority)
+        # DETERMINISTIC RULES (95%+ confidence) - Check FIRST before taxonomy matching
+        # These rules are high-precision and should override other methods
+
+        # Rule 1: ATM/Cash withdrawals
+        if channel == 'ATM' or any(kw in text_upper for kw in ['ATM CASH', 'ATM WDL', 'ATM WITHDRAWAL', 'CASH WITHDRAWAL']):
+            return RuleMatch(
+                category="ATM/Cash",
+                subcategory="Cash Withdrawal",
+                confidence=0.95,
+                matched_rules=["deterministic_atm"],
+                explanations=["atm_channel_or_keyword"]
+            )
+
+        # Rule 2: EMI/Loan payments
+        if any(kw in text_upper for kw in ['EMI ', ' EMI', ' LOAN ', 'LOAN REPAYMENT', 'EMI PAYMENT', 'EMI-']):
+            return RuleMatch(
+                category="EMI/Loan",
+                subcategory="Loan Payment",
+                confidence=0.95,
+                matched_rules=["deterministic_emi"],
+                explanations=["emi_or_loan_keyword"]
+            )
+
+        # Rule 3: Salary/Income (look for salary keywords)
+        if any(kw in text_upper for kw in ['SALARY', 'SAL CREDIT', 'PAYROLL', 'SALARY CREDIT']):
+            return RuleMatch(
+                category="Income/Salary",
+                subcategory="Salary",
+                confidence=0.95,
+                matched_rules=["deterministic_salary"],
+                explanations=["salary_keyword"]
+            )
+
+        # Rule 4: Fuel (high-confidence brand matches)
+        fuel_brands = ['hpcl', 'iocl', 'bpcl', 'indian oil', 'bharat petroleum', 'hindustan petroleum']
+        if any(brand in text_lower for brand in fuel_brands):
+            return RuleMatch(
+                category="Fuel",
+                subcategory="Petrol/Diesel",
+                confidence=0.95,
+                matched_rules=["deterministic_fuel"],
+                explanations=["fuel_brand_keyword"]
+            )
+
+        # Rule 5: Fees & Charges (small amounts + fee keywords)
+        if amount and amount < 500:
+            fee_keywords = ['fee', 'charge', 'penalty', 'service charge', 'bank charge', 'service fee']
+            if any(kw in text_lower for kw in fee_keywords):
+                return RuleMatch(
+                    category="Fees & Charges",
+                    subcategory="Bank Fees",
+                    confidence=0.90,  # Slightly lower as amount-based
+                    matched_rules=["deterministic_fee"],
+                    explanations=["fee_keyword_small_amount"]
+                )
+
+        # Strategy 1: Merchant-based categorization (highest priority after deterministic rules)
         if merchant:
             merchant_match = self._match_merchant(merchant)
             if merchant_match:

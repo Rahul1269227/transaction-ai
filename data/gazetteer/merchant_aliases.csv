@@ -41,51 +41,52 @@ merchant_id,canonical_name,aliases,category,subcategory
 40,TATA_SKY,"tata sky,tatasky,tata play,tataplay",utilities,DTH/Cable
 41,DISH_TV,"dish tv,dishtv,dish*",utilities,DTH/Cable
 42,AMAZON,"amazon,amazon.in,amazon india,amazon*,amzn",shopping,Online Shopping
-43,FLIPKART,"flipkart,flipkart*,fk,flipkart.com",shopping,Online Shopping
-44,MYNTRA,"myntra,myntra*,myntra.com",shopping,Clothing & Fashion
-45,AJIO,"ajio,ajio*,ajio.com",shopping,Clothing & Fashion
-46,NYKAA,"nykaa,nykaa*,nykaa.com",shopping,Online Shopping
-47,MEESHO,"meesho,meesho*,meesho.com",shopping,Online Shopping
-48,SNAPDEAL,"snapdeal,snapdeal*,snapdeal.com",shopping,Online Shopping
-49,SHOPPERS_STOP,"shoppers stop,shoppersstop,shoppers",shopping,Clothing & Fashion
-50,LIFESTYLE,"lifestyle,lifestyle stores,lifestyle*",shopping,Clothing & Fashion
-51,WESTSIDE,"westside,west side,westside*",shopping,Clothing & Fashion
-52,PANTALOONS,"pantaloons,pantaloon,pantaloons*",shopping,Clothing & Fashion
-53,NETFLIX,"netflix,netflix*,nflx",entertainment,Streaming Services
-54,PRIME_VIDEO,"prime video,amazon prime,primevideo,prime*",entertainment,Streaming Services
-55,HOTSTAR,"hotstar,disney hotstar,disney+hotstar,hotstar*",entertainment,Streaming Services
-56,SPOTIFY,"spotify,spotify*,sptfy",entertainment,Streaming Services
-57,YOUTUBE_PREMIUM,"youtube premium,youtube,yt premium,youtube*",entertainment,Streaming Services
-58,BOOKMYSHOW,"bookmyshow,book my show,bms,bookmyshow*",entertainment,Movies & Cinema
-59,PVR,"pvr,pvr cinemas,pvr*",entertainment,Movies & Cinema
-60,INOX,"inox,inox movies,inox*",entertainment,Movies & Cinema
-61,APOLLO_PHARMACY,"apollo pharmacy,apollo,apollopharmacy,apollo*",health,Pharmacy/Medicine
-62,MEDLIFE,"medlife,medlife*,med life",health,Pharmacy/Medicine
-63,1MG,"1mg,one mg,onemg,1mg*",health,Pharmacy/Medicine
-64,PHARMEASY,"pharmeasy,pharm easy,pharmeasy*",health,Pharmacy/Medicine
-65,NETMEDS,"netmeds,net meds,netmeds*",health,Pharmacy/Medicine
-66,APOLLO_HOSPITAL,"apollo hospital,apollo hospitals,apollo hosp",health,Doctor/Hospital
-67,MAX_HOSPITAL,"max hospital,max healthcare,max hosp",health,Doctor/Hospital
-68,FORTIS,"fortis,fortis hospital,fortis healthcare",health,Doctor/Hospital
-69,CULTFIT,"cultfit,cult.fit,cult fit,cure.fit,curefit",health,Gym/Fitness
-70,UDEMY,"udemy,udemy*,udemy.com",education,Online Courses
-71,COURSERA,"coursera,coursera*,coursera.org",education,Online Courses
-72,BYJUS,"byjus,byju's,byju,byjus*",education,Online Courses
-73,UNACADEMY,"unacademy,unacademy*,unacadmy",education,Online Courses
-74,VEDANTU,"vedantu,vedantu*,vedantu.com",education,Online Courses
-75,PHONEPE,"phonepe,phone pe,phonepe*,phone*pe",transfers_upi,UPI Transfer
-76,GOOGLEPAY,"googlepay,google pay,gpay,google*pay,g pay",transfers_upi,UPI Transfer
-77,PAYTM,"paytm,paytm*,pay tm",transfers_upi,UPI Transfer
-78,BHIM,"bhim,bhim upi,bhim*",transfers_upi,UPI Transfer
-79,ZERODHA,"zerodha,zerodha*,kite",investments,Stocks/Trading
-80,GROWW,"groww,groww*,grow",investments,Mutual Funds
-81,UPSTOX,"upstox,upstox*,upstx",investments,Stocks/Trading
-82,LIC,"lic,life insurance corporation,lic*",investments,Insurance Premium
-83,HDFC_LIFE,"hdfc life,hdfc standard life,hdfclife",investments,Insurance Premium
-84,ICICI_PRUDENTIAL,"icici prudential,iciciprudential,icici pru",investments,Insurance Premium
-85,SBI,"sbi,state bank,state bank of india,sbi*",transfers_upi,UPI Transfer
-86,HDFC_BANK,"hdfc,hdfc bank,hdfc*",transfers_upi,UPI Transfer
-87,ICICI_BANK,"icici,icici bank,icici*",transfers_upi,UPI Transfer
-88,AXIS_BANK,"axis,axis bank,axis*",transfers_upi,UPI Transfer
-89,KOTAK_BANK,"kotak,kotak mahindra,kotak bank,kotak*",transfers_upi,UPI Transfer
-90,YES_BANK,"yes bank,yes,yesbank,yes*",transfers_upi,UPI Transfer
+43,CLOUDTAIL,"cloudtail,cloudtail india,cloud tail,cloudtail*",shopping,Online Shopping
+44,FLIPKART,"flipkart,flipkart*,fk,flipkart.com",shopping,Online Shopping
+45,MYNTRA,"myntra,myntra*,myntra.com",shopping,Clothing & Fashion
+46,AJIO,"ajio,ajio*,ajio.com",shopping,Clothing & Fashion
+47,NYKAA,"nykaa,nykaa*,nykaa.com",shopping,Online Shopping
+48,MEESHO,"meesho,meesho*,meesho.com",shopping,Online Shopping
+49,SNAPDEAL,"snapdeal,snapdeal*,snapdeal.com",shopping,Online Shopping
+50,SHOPPERS_STOP,"shoppers stop,shoppersstop,shoppers",shopping,Clothing & Fashion
+51,LIFESTYLE,"lifestyle,lifestyle stores,lifestyle*",shopping,Clothing & Fashion
+52,WESTSIDE,"westside,west side,westside*",shopping,Clothing & Fashion
+53,PANTALOONS,"pantaloons,pantaloon,pantaloons*",shopping,Clothing & Fashion
+54,NETFLIX,"netflix,netflix*,nflx",entertainment,Streaming Services
+55,PRIME_VIDEO,"prime video,amazon prime,primevideo,prime*",entertainment,Streaming Services
+56,HOTSTAR,"hotstar,disney hotstar,disney+hotstar,hotstar*",entertainment,Streaming Services
+57,SPOTIFY,"spotify,spotify*,sptfy",entertainment,Streaming Services
+58,YOUTUBE_PREMIUM,"youtube premium,youtube,yt premium,youtube*",entertainment,Streaming Services
+59,BOOKMYSHOW,"bookmyshow,book my show,bms,bookmyshow*",entertainment,Movies & Cinema
+60,PVR,"pvr,pvr cinemas,pvr*",entertainment,Movies & Cinema
+61,INOX,"inox,inox movies,inox*",entertainment,Movies & Cinema
+62,APOLLO_PHARMACY,"apollo pharmacy,apollo,apollopharmacy,apollo*",health,Pharmacy/Medicine
+63,MEDLIFE,"medlife,medlife*,med life",health,Pharmacy/Medicine
+64,1MG,"1mg,one mg,onemg,1mg*",health,Pharmacy/Medicine
+65,PHARMEASY,"pharmeasy,pharm easy,pharmeasy*",health,Pharmacy/Medicine
+66,NETMEDS,"netmeds,net meds,netmeds*",health,Pharmacy/Medicine
+67,APOLLO_HOSPITAL,"apollo hospital,apollo hospitals,apollo hosp",health,Doctor/Hospital
+68,MAX_HOSPITAL,"max hospital,max healthcare,max hosp",health,Doctor/Hospital
+69,FORTIS,"fortis,fortis hospital,fortis healthcare",health,Doctor/Hospital
+70,CULTFIT,"cultfit,cult.fit,cult fit,cure.fit,curefit",health,Gym/Fitness
+71,UDEMY,"udemy,udemy*,udemy.com",education,Online Courses
+72,COURSERA,"coursera,coursera*,coursera.org",education,Online Courses
+73,BYJUS,"byjus,byju's,byju,byjus*",education,Online Courses
+74,UNACADEMY,"unacademy,unacademy*,unacadmy",education,Online Courses
+75,VEDANTU,"vedantu,vedantu*,vedantu.com",education,Online Courses
+76,PHONEPE,"phonepe,phone pe,phonepe*,phone*pe",transfers_upi,UPI Transfer
+77,GOOGLEPAY,"googlepay,google pay,gpay,google*pay,g pay",transfers_upi,UPI Transfer
+78,PAYTM,"paytm,paytm*,pay tm",transfers_upi,UPI Transfer
+79,BHIM,"bhim,bhim upi,bhim*",transfers_upi,UPI Transfer
+80,ZERODHA,"zerodha,zerodha*,kite",investments,Stocks/Trading
+81,GROWW,"groww,groww*,grow",investments,Mutual Funds
+82,UPSTOX,"upstox,upstox*,upstx",investments,Stocks/Trading
+83,LIC,"lic,life insurance corporation,lic*",investments,Insurance Premium
+84,HDFC_LIFE,"hdfc life,hdfc standard life,hdfclife",investments,Insurance Premium
+85,ICICI_PRUDENTIAL,"icici prudential,iciciprudential,icici pru",investments,Insurance Premium
+86,SBI,"sbi,state bank,state bank of india,sbi*",transfers_upi,UPI Transfer
+87,HDFC_BANK,"hdfc,hdfc bank,hdfc*",transfers_upi,UPI Transfer
+88,ICICI_BANK,"icici,icici bank,icici*",transfers_upi,UPI Transfer
+89,AXIS_BANK,"axis,axis bank,axis*",transfers_upi,UPI Transfer
+90,KOTAK_BANK,"kotak,kotak mahindra,kotak bank,kotak*",transfers_upi,UPI Transfer
+91,YES_BANK,"yes bank,yes,yesbank,yes*",transfers_upi,UPI Transfer
