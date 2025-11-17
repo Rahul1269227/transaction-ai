@@ -244,7 +244,7 @@ def main():
                        help='Minimum feedback count to trigger retraining')
     parser.add_argument('--output-dir', default='data/learning',
                        help='Output directory for learning data')
-    parser.add_argument('--model-output', default='models/classifier',
+    parser.add_argument('--model-output', default='models/transaction_classifier_balanced',
                        help='Output path for retrained model')
     parser.add_argument('--few-shot-output', default='data/few_shot_examples.jsonl',
                        help='Output path for few-shot examples')

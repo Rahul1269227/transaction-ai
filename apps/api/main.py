@@ -102,7 +102,8 @@ TAXONOMY_PATH = resolve_path(os.getenv("TAXONOMY_PATH"), BASE_DIR / "data" / "ta
 GAZETTEER_PATH = resolve_path(
     os.getenv("GAZETTEER_PATH"), BASE_DIR / "data" / "gazetteer" / "merchant_aliases.csv"
 )
-MODEL_PATH = resolve_path(os.getenv("MODEL_PATH"), BASE_DIR / "models" / "classifier")
+# Use balanced model by default for best performance across all categories
+MODEL_PATH = resolve_path(os.getenv("MODEL_PATH"), BASE_DIR / "models" / "transaction_classifier_balanced")
 FEW_SHOT_PATH = os.getenv("FEW_SHOT_EXAMPLES_PATH")
 
 logging.basicConfig(
