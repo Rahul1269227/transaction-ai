@@ -39,18 +39,27 @@ export default function TransactionCategorizer() {
     setShowFeedback(false)
     setFeedbackSubmitted(false) // Reset feedback status for new categorization
     try {
+      // Increased timeout for LLM ensemble processing (5 minutes)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 300000) // 5 minute timeout
+
       const response = await fetch(API_ENDPOINTS.categorize, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ text: transaction }),
+        signal: controller.signal,
       })
 
+      clearTimeout(timeoutId)
       const data = await response.json()
       setResult(data)
     } catch (error) {
       console.error('Error:', error)
+      if (error.name === 'AbortError') {
+        alert('Request timed out. The LLM might be taking too long to respond.')
+      }
     } finally {
       setLoading(false)
     }
