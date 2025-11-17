@@ -152,7 +152,8 @@ class TransactionNormalizer:
         text: str,
         amount: Optional[float] = None,
         date: Optional[str] = None,
-        currency: str = "INR"
+        currency: str = "INR",
+        merchant: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Main normalization method
@@ -162,6 +163,7 @@ class TransactionNormalizer:
             amount: Transaction amount (optional, will try to extract from text)
             date: Transaction date (optional, will try to extract from text)
             currency: Currency code (default: INR)
+            merchant: Merchant name (optional, will try to extract from text)
 
         Returns:
             Dict with normalized transaction data
@@ -176,6 +178,9 @@ class TransactionNormalizer:
         extracted_amount = TransactionNormalizer.extract_amount(text, amount)
         extracted_date = TransactionNormalizer.extract_date(text, date)
 
+        # Use provided merchant or fall back to pattern matching
+        final_merchant = merchant if merchant else pattern_match.merchant
+
         # Build normalized result
         result = {
             "original_text": text,
@@ -184,14 +189,14 @@ class TransactionNormalizer:
                 "amount": float(extracted_amount) if extracted_amount else None,
                 "currency": currency,
                 "date": extracted_date,
-                "merchant": pattern_match.merchant,
+                "merchant": final_merchant,
                 "channel": pattern_match.channel,
                 "reference": pattern_match.reference,
                 "location": pattern_match.location,
             },
             "pattern_match": {
                 "channel": pattern_match.channel,
-                "merchant": pattern_match.merchant,
+                "merchant": final_merchant,
                 "reference": pattern_match.reference,
                 "location": pattern_match.location,
             },

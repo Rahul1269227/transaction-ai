@@ -93,7 +93,10 @@ ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.4"))
 LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.3"))
 LLM_URL = os.getenv("LLM_URL", "http://llm-service:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "3.0"))  # Aggressive 3-second timeout
 USE_ENSEMBLE = bool_from_env("USE_ENSEMBLE", False)
+FAST_MODE = bool_from_env("FAST_MODE", False)  # Skip LLM when rule+ML agree with high confidence
+FAST_MODE_THRESHOLD = float(os.getenv("FAST_MODE_THRESHOLD", "0.90"))  # Confidence threshold for fast mode
 PROMETHEUS_ENABLED = bool_from_env("PROMETHEUS_ENABLED", False)
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
@@ -485,6 +488,9 @@ def build_router() -> RouterType:
             auto_accept_threshold=AUTO_ACCEPT_THRESHOLD,
             review_threshold=REVIEW_THRESHOLD,
             enable_parallel=True,
+            llm_timeout=LLM_TIMEOUT,
+            fast_mode=FAST_MODE,
+            fast_mode_threshold=FAST_MODE_THRESHOLD,
         )
 
     logger.info("Initializing hybrid router (rules + ML)")
@@ -633,8 +639,17 @@ async def categorize_transaction(transaction: TransactionInput):
         raise HTTPException(status_code=503, detail="Service not initialized")
 
     # Preprocess transaction text to extract key information from JSON or clean plain text
-    processed_text = preprocess_transaction(transaction.text)
+    from core.preprocessor import preprocessor
+    processed_text, extracted_amount, extracted_date, extracted_currency, extracted_merchant = preprocessor.preprocess_with_fields(transaction.text)
+
+    # Use extracted fields from JSON if available, otherwise fall back to transaction fields
+    final_amount = transaction.amount if transaction.amount is not None else extracted_amount
+    final_date = transaction.date if transaction.date else extracted_date
+    final_currency = transaction.currency if transaction.currency != "INR" else extracted_currency
+    final_merchant = extracted_merchant  # Always prefer extracted merchant from JSON
+
     logger.debug(f"Preprocessed: {transaction.text[:100]}... -> {processed_text}")
+    logger.debug(f"Extracted fields: amount={final_amount}, date={final_date}, currency={final_currency}, merchant={final_merchant}")
 
     cache_key = build_cache_key(transaction)
     cached_output = fetch_cached_output(cache_key)
@@ -644,18 +659,24 @@ async def categorize_transaction(transaction: TransactionInput):
 
     start = time.perf_counter()
     try:
+        # Normalize first to get clean data for both categorization and response
+        normalized_payload = router.normalizer.normalize(
+            text=processed_text,  # Use preprocessed text, not raw JSON
+            amount=final_amount,
+            date=final_date,
+            currency=final_currency,
+            merchant=final_merchant,
+        )
+
+        # Categorize using the normalized data
         result = router.categorize(
             text=processed_text,
-            amount=transaction.amount,
-            date=transaction.date,
-            currency=transaction.currency,
+            amount=final_amount,
+            date=final_date,
+            currency=final_currency,
+            merchant=final_merchant,
         )
-        normalized_payload = router.normalizer.normalize(
-            text=transaction.text,
-            amount=transaction.amount,
-            date=transaction.date,
-            currency=transaction.currency,
-        )
+
         response = build_transaction_output(transaction, normalized_payload, result)
 
         # Only persist and cache high-confidence results (not requiring review)

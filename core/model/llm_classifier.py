@@ -3,12 +3,17 @@ LLM-based Transaction Classifier
 Uses local LLM (via Ollama) for transaction categorization
 """
 
+import hashlib
 import json
 import logging
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 import requests
 from datetime import datetime
+import asyncio
+import aiohttp
+from concurrent.futures import ThreadPoolExecutor
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +51,11 @@ class LLMClassifier:
         self.categories = []
         self._service_unavailable = False  # Track if service is down
         self._error_logged = False  # Only log error once
+
+        # In-memory cache for LLM responses
+        self._response_cache: Dict[str, Tuple[str, float, str]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
 
         # Load taxonomy if provided
         if taxonomy_path:
@@ -125,23 +135,148 @@ Response Format (JSON only, no extra text):
 
         return prompt
 
-    def predict_single(
+    def _get_cache_key(self, text: str, amount: Optional[float] = None) -> str:
+        """Generate cache key for transaction"""
+        cache_input = f"{text.lower().strip()}|{amount if amount else ''}"
+        return hashlib.md5(cache_input.encode()).hexdigest()
+
+    async def predict_single_async(
         self,
         text: str,
         amount: Optional[float] = None,
-        timeout: int = 60
+        timeout: int = 120,
+        session: Optional[aiohttp.ClientSession] = None
     ) -> Tuple[str, float, str]:
         """
-        Predict category for a single transaction using LLM
+        Async predict category for a single transaction using LLM
 
         Args:
             text: Transaction text
             amount: Transaction amount
-            timeout: Request timeout in seconds
+            timeout: Request timeout in seconds (increased to 120s)
+            session: Optional aiohttp session for connection pooling
 
         Returns:
             Tuple of (category, confidence, reasoning)
         """
+        # Check cache first
+        cache_key = self._get_cache_key(text, amount)
+        if cache_key in self._response_cache:
+            self._cache_hits += 1
+            logger.debug(f"LLM cache hit for: {text[:50]}... (hits: {self._cache_hits}/{self._cache_hits + self._cache_misses})")
+            return self._response_cache[cache_key]
+
+        self._cache_misses += 1
+
+        # Create session if not provided
+        close_session = False
+        if session is None:
+            session = aiohttp.ClientSession()
+            close_session = True
+
+        try:
+            # Build prompt
+            prompt = self._build_prompt(text, amount)
+
+            # Call Ollama API with async
+            async with session.post(
+                f"{self.ollama_url}/api/generate",
+                json={
+                    "model": self.model_name,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.05,
+                        "top_p": 0.8,
+                        "num_predict": 80,
+                        "num_thread": 4  # Parallelize within model inference
+                    }
+                },
+                timeout=aiohttp.ClientTimeout(total=timeout)
+            ) as response:
+                if response.status != 200:
+                    logger.error(f"LLM API error: {response.status}")
+                    return "Other", 0.5, "LLM API error"
+
+                # Parse response
+                result = await response.json()
+                llm_output = result.get('response', '').strip()
+
+                # Extract JSON from response
+                try:
+                    json_start = llm_output.find('{')
+                    json_end = llm_output.rfind('}') + 1
+                    if json_start >= 0 and json_end > json_start:
+                        json_str = llm_output[json_start:json_end]
+                        parsed = json.loads(json_str)
+
+                        category = parsed.get('category', 'Other')
+                        confidence = float(parsed.get('confidence', 0.5))
+                        reasoning = parsed.get('reasoning', 'No reasoning provided')
+
+                        # Validate category
+                        if category not in self.categories:
+                            category = self._find_closest_category(category)
+
+                        # Cache the successful response
+                        result_tuple = (category, confidence, reasoning)
+                        self._response_cache[cache_key] = result_tuple
+                        logger.debug(f"LLM cache stored for: {text[:50]}...")
+
+                        return result_tuple
+                    else:
+                        logger.warning(f"No JSON found in LLM response: {llm_output}")
+                        return "Other", 0.5, "Failed to parse LLM response"
+
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parse error: {e}, response: {llm_output}")
+                    return "Other", 0.5, "Invalid JSON from LLM"
+
+        except asyncio.TimeoutError:
+            if not self._error_logged:
+                logger.warning(f"LLM request timeout ({timeout}s) - may be slow or overloaded")
+                self._error_logged = True
+            return None, 0.0, "LLM timeout"
+        except aiohttp.ClientConnectorError as e:
+            if not self._service_unavailable:
+                self._service_unavailable = True
+                logger.warning(f"LLM service unavailable at {self.ollama_url} - will gracefully degrade to rules+ML only")
+            return None, 0.0, "LLM unavailable"
+        except Exception as e:
+            if not self._error_logged:
+                logger.warning(f"LLM prediction error: {e} - will gracefully degrade")
+                self._error_logged = True
+            return None, 0.0, f"Error: {str(e)}"
+        finally:
+            if close_session:
+                await session.close()
+
+    def predict_single(
+        self,
+        text: str,
+        amount: Optional[float] = None,
+        timeout: int = 120
+    ) -> Tuple[str, float, str]:
+        """
+        Predict category for a single transaction using LLM (synchronous wrapper)
+
+        Args:
+            text: Transaction text
+            amount: Transaction amount
+            timeout: Request timeout in seconds (increased to 120s)
+
+        Returns:
+            Tuple of (category, confidence, reasoning)
+        """
+        # Check cache first
+        cache_key = self._get_cache_key(text, amount)
+        if cache_key in self._response_cache:
+            self._cache_hits += 1
+            logger.debug(f"LLM cache hit for: {text[:50]}... (hits: {self._cache_hits}/{self._cache_hits + self._cache_misses})")
+            return self._response_cache[cache_key]
+
+        self._cache_misses += 1
+
         try:
             # Build prompt
             prompt = self._build_prompt(text, amount)
@@ -156,7 +291,7 @@ Response Format (JSON only, no extra text):
                     "options": {
                         "temperature": 0.05,  # Very low temperature for maximum consistency
                         "top_p": 0.8,  # Lower for more focused responses
-                        "num_predict": 150  # Shorter responses for faster inference
+                        "num_predict": 80  # Reduced from 150 to 80 for faster inference
                     }
                 },
                 timeout=timeout
@@ -188,7 +323,12 @@ Response Format (JSON only, no extra text):
                         # Try to find closest match
                         category = self._find_closest_category(category)
 
-                    return category, confidence, reasoning
+                    # Cache the successful response
+                    result = (category, confidence, reasoning)
+                    self._response_cache[cache_key] = result
+                    logger.debug(f"LLM cache stored for: {text[:50]}...")
+
+                    return result
                 else:
                     logger.warning(f"No JSON found in LLM response: {llm_output}")
                     return "Other", 0.5, "Failed to parse LLM response"
@@ -222,19 +362,21 @@ Response Format (JSON only, no extra text):
                 return valid_cat
         return "Other"
 
-    def predict(
+    async def predict_batch_async(
         self,
         texts: List[str],
         amounts: Optional[List[float]] = None,
-        batch_size: int = 1
+        max_concurrent: int = 4,
+        timeout: int = 120
     ) -> List[Tuple[str, float, str]]:
         """
-        Predict categories for multiple transactions
+        Predict categories for multiple transactions in parallel using async
 
         Args:
             texts: List of transaction texts
             amounts: List of amounts
-            batch_size: Currently only supports 1 (sequential processing)
+            max_concurrent: Maximum number of concurrent LLM requests (default: 4)
+            timeout: Timeout per request in seconds
 
         Returns:
             List of (category, confidence, reasoning) tuples
@@ -242,12 +384,71 @@ Response Format (JSON only, no extra text):
         if amounts is None:
             amounts = [None] * len(texts)
 
-        results = []
-        for text, amount in zip(texts, amounts):
-            result = self.predict_single(text, amount)
-            results.append(result)
+        # Create shared session for connection pooling
+        async with aiohttp.ClientSession() as session:
+            # Create tasks with semaphore to limit concurrency
+            semaphore = asyncio.Semaphore(max_concurrent)
 
-        return results
+            async def predict_with_semaphore(text, amount):
+                async with semaphore:
+                    return await self.predict_single_async(text, amount, timeout, session)
+
+            # Run all predictions in parallel (limited by semaphore)
+            tasks = [predict_with_semaphore(text, amount) for text, amount in zip(texts, amounts)]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Handle any exceptions
+            processed_results = []
+            for i, result in enumerate(results):
+                if isinstance(result, Exception):
+                    logger.error(f"Batch prediction error for text {i}: {result}")
+                    processed_results.append(("Other", 0.5, f"Error: {str(result)}"))
+                else:
+                    processed_results.append(result)
+
+            return processed_results
+
+    def predict(
+        self,
+        texts: List[str],
+        amounts: Optional[List[float]] = None,
+        batch_size: int = 4
+    ) -> List[Tuple[str, float, str]]:
+        """
+        Predict categories for multiple transactions with parallel processing
+
+        Args:
+            texts: List of transaction texts
+            amounts: List of amounts
+            batch_size: Maximum number of concurrent LLM requests (default: 4)
+
+        Returns:
+            List of (category, confidence, reasoning) tuples
+        """
+        if amounts is None:
+            amounts = [None] * len(texts)
+
+        # Use asyncio to run parallel predictions
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+        if loop.is_running():
+            # If loop is already running (e.g., in async context), use run_in_executor
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    asyncio.run,
+                    self.predict_batch_async(texts, amounts, max_concurrent=batch_size)
+                )
+                return future.result()
+        else:
+            # Run async batch prediction
+            return loop.run_until_complete(
+                self.predict_batch_async(texts, amounts, max_concurrent=batch_size)
+            )
 
     def check_health(self) -> bool:
         """Check if LLM service is available"""
