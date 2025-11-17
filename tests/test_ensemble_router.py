@@ -15,7 +15,7 @@ class TestEnsembleRouter:
         return EnsembleRouter(
             taxonomy_path=taxonomy_path,
             gazetteer_path=gazetteer_path,
-            model_path=None,  # Skip ML model
+            ml_model_path=None,  # Skip ML model
             llm_url=None,  # Skip LLM
             rule_weight=0.5,
             ml_weight=0.3,
@@ -178,7 +178,7 @@ class TestEdgeCases:
         return EnsembleRouter(
             taxonomy_path=taxonomy_path,
             gazetteer_path=gazetteer_path,
-            model_path=None,
+            ml_model_path=None,
             llm_url=None
         )
 

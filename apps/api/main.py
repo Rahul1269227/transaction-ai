@@ -103,7 +103,11 @@ GAZETTEER_PATH = resolve_path(
     os.getenv("GAZETTEER_PATH"), BASE_DIR / "data" / "gazetteer" / "merchant_aliases.csv"
 )
 # Use balanced model by default for best performance across all categories
-MODEL_PATH = resolve_path(os.getenv("MODEL_PATH"), BASE_DIR / "models" / "transaction_classifier_balanced")
+# Default path can be overridden via MODEL_PATH environment variable
+MODEL_PATH = resolve_path(
+    os.getenv("MODEL_PATH"),
+    BASE_DIR / "models" / "transaction_classifier_balanced_final"
+)
 FEW_SHOT_PATH = os.getenv("FEW_SHOT_EXAMPLES_PATH")
 
 logging.basicConfig(
@@ -289,7 +293,8 @@ def init_database() -> None:
 
 
 @contextmanager
-def db_session() -> Union[Session, None]:
+def db_session():  # type: ignore[misc]
+    """Context manager for database sessions. Yields None if database not configured."""
     if SessionLocal is None:
         yield None
         return
@@ -705,7 +710,7 @@ async def categorize_batch(batch: TransactionBatchInput):
             outputs.append(output)
             record_metrics("categorize_batch", 0.0, output)
 
-        stats = router.get_stats(results)
+        stats = router.get_stats(results)  # type: ignore[arg-type]
         duration = time.perf_counter() - start
         LATENCY_HIST.labels(endpoint="categorize_batch").observe(duration) if PROMETHEUS_ENABLED else None
 

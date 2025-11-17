@@ -13,9 +13,9 @@
 The application will now automatically use the balanced model when started, providing:
 
 - ✅ **No bias** toward majority classes (ATM/Cash, Investments)
-- ✅ **99.78% accuracy** across all 17 categories
-- ✅ **Perfect predictions** for Food & Dining, Entertainment, Travel, Transport, etc.
-- ✅ **New category support**: Fuel, Groceries, Education, Health
+- ✅ **99.78% accuracy** across 12 core categories (taxonomy defines 18 total)
+- ✅ **Perfect predictions** for Entertainment, Travel, Transport, Bills, etc.
+- ⚠️  **Note**: This model supports 12 categories from the training data. Full 18-category taxonomy support requires retraining with additional categories: Food & Dining, Groceries, Fuel, Health, Education, Other
 
 ## 🚀 Immediate Next Steps
 

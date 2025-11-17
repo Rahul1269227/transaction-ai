@@ -3,6 +3,9 @@
 ## Overview
 Successfully trained a transaction categorization model using a combination of real Kaggle data and synthetic data for best performance.
 
+> **Production Status:** The API currently ships with the balanced 17-category model located at `models/transaction_classifier_balanced`.  
+> This document captures the legacy 12-category experiment saved to `models/transaction_classifier_v2/` for historical reference only.
+
 ## Dataset Composition
 
 ### Real Data (from Kaggle)

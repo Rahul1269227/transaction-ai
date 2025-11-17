@@ -26,7 +26,7 @@ def gazetteer_path(base_dir):
 @pytest.fixture
 def model_path(base_dir):
     """Get path to trained model"""
-    model_dir = base_dir / "models" / "transaction_classifier_balanced"
+    model_dir = base_dir / "models" / "transaction_classifier_balanced_final"
     if model_dir.exists():
         return str(model_dir)
     return None
