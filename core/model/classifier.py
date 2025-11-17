@@ -378,11 +378,20 @@ class EmbeddingClassifier:
         try:
             # Get feature importances
             if hasattr(self.classifier, 'feature_importances_'):
+                # Direct access for non-calibrated models
                 importances = self.classifier.feature_importances_
-            else:
-                # For calibrated classifier, get base estimator
+            elif hasattr(self.classifier, 'calibrated_classifiers_'):
+                # For CalibratedClassifierCV (newer sklearn versions)
+                # Get the first calibrated classifier's base estimator
+                base_estimator = self.classifier.calibrated_classifiers_[0].estimator
+                importances = base_estimator.feature_importances_
+            elif hasattr(self.classifier, 'base_estimator'):
+                # For CalibratedClassifierCV (older sklearn versions)
                 base_estimator = self.classifier.base_estimator
                 importances = base_estimator.feature_importances_
+            else:
+                logging.warning("Classifier does not support feature importance extraction")
+                return []
 
             # Create feature names (embeddings + handcrafted)
             feature_names = [f"emb_{i}" for i in range(self.embedding_dim)]
