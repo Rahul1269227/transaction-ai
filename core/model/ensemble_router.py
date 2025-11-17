@@ -67,7 +67,10 @@ class EnsembleRouter:
         llm_weight: float = 0.3,
         auto_accept_threshold: float = 0.85,
         review_threshold: float = 0.60,
-        enable_parallel: bool = True
+        enable_parallel: bool = True,
+        llm_timeout: float = 120.0,  # 120-second timeout for LLM (allows time for inference + parallelization)
+        fast_mode: bool = False,  # Skip LLM when rule+ML agree with high confidence
+        fast_mode_threshold: float = 0.90  # Confidence threshold for fast mode (rule+ML agreement)
     ):
         """
         Initialize ensemble router
@@ -85,6 +88,9 @@ class EnsembleRouter:
             auto_accept_threshold: Confidence threshold for auto-accept
             review_threshold: Confidence threshold for human review
             enable_parallel: Run methods in parallel (faster)
+            llm_timeout: Timeout for LLM requests in seconds (default: 120.0)
+            fast_mode: Skip LLM when rule+ML agree with high confidence (default: False)
+            fast_mode_threshold: Confidence threshold for fast mode (default: 0.90)
         """
         self.rule_weight = rule_weight
         self.ml_weight = ml_weight
@@ -92,6 +98,9 @@ class EnsembleRouter:
         self.auto_accept_threshold = auto_accept_threshold
         self.review_threshold = review_threshold
         self.enable_parallel = enable_parallel
+        self.llm_timeout = llm_timeout
+        self.fast_mode = fast_mode
+        self.fast_mode_threshold = fast_mode_threshold
 
         # Normalize weights
         total_weight = rule_weight + ml_weight + llm_weight
@@ -363,7 +372,8 @@ class EnsembleRouter:
         text: str,
         amount: Optional[float] = None,
         date: Optional[str] = None,
-        currency: str = "INR"
+        currency: str = "INR",
+        merchant: Optional[str] = None
     ) -> CategorizationResult:
         """
         Categorize a transaction using ensemble of all methods
@@ -373,60 +383,146 @@ class EnsembleRouter:
             amount: Transaction amount
             date: Transaction date
             currency: Currency code
+            merchant: Merchant name (optional, extracted from JSON)
 
         Returns:
             CategorizationResult with category and metadata
         """
         # Step 1: Normalize transaction
-        normalized = self.normalizer.normalize(text, amount, date, currency)
+        normalized = self.normalizer.normalize(text, amount, date, currency, merchant)
         search_text = normalized['search_text']
-        merchant = normalized['normalized']['merchant']
+        # Only use normalized merchant if one wasn't explicitly provided
+        if merchant is None:
+            merchant = normalized['normalized']['merchant']
         channel = normalized['normalized']['channel']
 
-        # Step 2: Resolve merchant
+        # Step 2: Resolve merchant (with fuzzy matching on full text)
         resolved_merchant = None
-        if merchant and self.merchant_resolver:
+        merchant_category = None
+        merchant_subcategory = None
+        merchant_confidence = 0.0
+
+        # Try fuzzy matching on the full transaction text first
+        if self.merchant_resolver:
+            # Search the entire transaction text against gazetteer
+            fuzzy_matches = self.merchant_resolver.search(text, limit=1)
+            if fuzzy_matches and fuzzy_matches[0].similarity_score >= 0.70:
+                match = fuzzy_matches[0]
+                resolved_merchant = match.canonical_name
+                merchant_category = match.category
+                merchant_subcategory = match.subcategory
+                merchant_confidence = match.similarity_score
+                logger.info(f"Fuzzy merchant match in text: '{text}' -> {resolved_merchant} ({merchant_confidence:.2%})")
+
+        # Fallback to normalized merchant extraction if fuzzy didn't find anything
+        if not resolved_merchant and merchant and self.merchant_resolver:
             matches = self.merchant_resolver.resolve(merchant, threshold=0.8, top_k=1)
             if matches:
-                resolved_merchant = matches[0].canonical_name
+                match = matches[0]
+                resolved_merchant = match.canonical_name
+                merchant_category = match.category
+                merchant_subcategory = match.subcategory
+                merchant_confidence = match.similarity_score
 
-        # Step 3: Run all categorizers in parallel
+        # MERCHANT-FIRST STRATEGY: High-confidence merchant matches should dominate
+        if merchant_confidence >= 0.85:
+            logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%})")
+            return CategorizationResult(
+                category=merchant_category,
+                subcategory=merchant_subcategory,
+                confidence=merchant_confidence,
+                method="merchant_gazetteer",
+                explanations=[f"merchant_match={resolved_merchant}"],
+                requires_review=False,
+                merchant_resolved=resolved_merchant,
+                ensemble_votes={
+                    "merchant": {"category": merchant_category, "confidence": merchant_confidence},
+                    "rule": None,
+                    "ml": None,
+                    "llm": None,
+                    "weighted_votes": {merchant_category: merchant_confidence},
+                    "agreement_count": 1,
+                    "total_methods": 1
+                }
+            )
+
+        # Step 3: Run categorizers (with fast mode optimization)
         rule_result = None
         ml_result = None
         llm_result = None
 
         if self.enable_parallel and self.executor:
-            # Parallel execution
+            # Parallel execution with per-method timeouts
             futures = {}
+            timeouts = {}
 
             if self.rule_categorizer:
                 futures['rule'] = self.executor.submit(
                     self._run_rule_categorizer,
                     search_text, resolved_merchant or merchant, channel, amount
                 )
+                timeouts['rule'] = 2.0  # Rules are fast
 
             if self.ml_classifier:
                 futures['ml'] = self.executor.submit(
                     self._run_ml_classifier,
                     search_text, normalized
                 )
+                timeouts['ml'] = 5.0  # ML is moderately fast
 
-            if self.llm_classifier:
+            # FAST MODE: Only run LLM if fast_mode is disabled OR if rule+ML don't agree
+            should_skip_llm = False
+            if self.fast_mode and self.llm_classifier:
+                # Wait for rule and ML first
+                rule_result = None
+                ml_result = None
+                for method in ['rule', 'ml']:
+                    if method in futures:
+                        try:
+                            timeout = timeouts.get(method, 10.0)
+                            result = futures[method].result(timeout=timeout)
+                            if method == 'rule':
+                                rule_result = result
+                            elif method == 'ml':
+                                ml_result = result
+                        except (TimeoutError, Exception) as e:
+                            logger.warning(f"{method} method failed: {e}")
+                
+                # Check if rule+ML agree with high confidence
+                if rule_result and ml_result:
+                    # Extract from tuple results (both methods return tuples)
+                    rule_cat = rule_result[0]
+                    rule_conf = rule_result[1]
+                    ml_cat = ml_result[0]
+                    ml_conf = ml_result[1]
+                    
+                    # Check agreement and confidence
+                    if rule_cat == ml_cat and rule_conf >= self.fast_mode_threshold and ml_conf >= self.fast_mode_threshold:
+                        should_skip_llm = True
+                        min_conf = min(rule_conf, ml_conf)
+                        logger.info(f"Fast mode: Rule+ML agree on '{rule_cat}' with confidence {min_conf:.2f} - skipping LLM")
+                        # Results already set above, continue to skip LLM
+
+            if self.llm_classifier and not should_skip_llm:
                 futures['llm'] = self.executor.submit(
                     self._run_llm_classifier,
                     text, amount
                 )
+                timeouts['llm'] = self.llm_timeout  # LLM gets aggressive timeout
 
-            # Collect results
+            # Collect results with individual timeouts
             for method, future in futures.items():
                 try:
-                    result = future.result(timeout=60)  # 60s timeout
+                    timeout = timeouts.get(method, 10.0)
+                    result = future.result(timeout=timeout)
                     if method == 'rule':
                         rule_result = result
                     elif method == 'ml':
                         ml_result = result
                     elif method == 'llm':
                         llm_result = result
+                except TimeoutError:
+                    logger.warning(f"{method} method timed out after {timeouts.get(method)}s - continuing without it")
                 except Exception as e:
                     logger.error(f"{method} method failed: {e}")
 
@@ -436,7 +532,23 @@ class EnsembleRouter:
                 search_text, resolved_merchant or merchant, channel, amount
             )
             ml_result = self._run_ml_classifier(search_text, normalized)
-            llm_result = self._run_llm_classifier(text, amount)
+            
+            # FAST MODE: Skip LLM if rule+ML agree with high confidence
+            if self.fast_mode:
+                if rule_result and ml_result:
+                    # Extract from tuple results
+                    rule_cat = rule_result[0]
+                    rule_conf = rule_result[1]
+                    ml_cat = ml_result[0]
+                    ml_conf = ml_result[1]
+                    
+                    if rule_cat == ml_cat and rule_conf >= self.fast_mode_threshold and ml_conf >= self.fast_mode_threshold:
+                        logger.info(f"Fast mode: Rule+ML agree on '{rule_cat}' - skipping LLM")
+                        llm_result = None
+                    else:
+                        llm_result = self._run_llm_classifier(text, amount)
+            else:
+                llm_result = self._run_llm_classifier(text, amount)
 
         # Step 4: Ensemble voting
         result = self._ensemble_vote(rule_result, ml_result, llm_result)

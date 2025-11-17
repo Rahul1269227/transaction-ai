@@ -5,7 +5,8 @@ Intelligently extracts key information from structured JSON transactions
 
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
+from datetime import datetime
 
 
 class TransactionPreprocessor:
@@ -16,9 +17,9 @@ class TransactionPreprocessor:
 
     # Common field names for merchants (case-insensitive)
     MERCHANT_FIELDS = [
-        'merchant_name', 'merchantname', 'merchant', 'store_name', 'storename',
+        'merchant_name', 'merchantname', 'merchant', 'name', 'store_name', 'storename',
         'store', 'business_name', 'businessname', 'seller', 'vendor',
-        'payee_name', 'payeename', 'payee', 'recipient'
+        'payee_name', 'payeename', 'payee', 'recipient', 'display_name', 'displayname'
     ]
 
     # Common field names for amounts
@@ -80,6 +81,33 @@ class TransactionPreprocessor:
 
         # If not JSON or extraction failed, return original (cleaned)
         return self._clean_text(text)
+
+    def preprocess_with_fields(self, text: str) -> Tuple[str, Optional[float], Optional[str], Optional[str], Optional[str]]:
+        """
+        Enhanced preprocessing that extracts both cleaned text and structured fields
+
+        Args:
+            text: Raw transaction text (could be JSON or plain text)
+
+        Returns:
+            Tuple of (cleaned_text, amount, date, currency, merchant)
+        """
+        # Try to parse as JSON
+        try:
+            data = json.loads(text)
+            if isinstance(data, dict):
+                cleaned_text = self._extract_from_json(data)
+                amount = self._extract_amount_from_json(data)
+                date = self._extract_date_from_json(data)
+                currency = self._find_currency(data) or "INR"
+                merchant = self._find_merchant(data)
+                return (cleaned_text, amount, date, currency, merchant)
+        except (json.JSONDecodeError, ValueError):
+            # Not JSON, return as-is (might be plain text)
+            pass
+
+        # If not JSON or extraction failed, return original (cleaned)
+        return (self._clean_text(text), None, None, "INR", None)
 
     def _extract_from_json(self, data: Dict[str, Any]) -> str:
         """
@@ -204,6 +232,48 @@ class TransactionPreprocessor:
     def _find_mcc(self, data: Dict[str, Any]) -> Optional[str]:
         """Find merchant category code in JSON"""
         return self._find_field(data, ['merchant_category_code', 'mcc', 'category_code'])
+
+    def _extract_amount_from_json(self, data: Dict[str, Any]) -> Optional[float]:
+        """Extract transaction amount from JSON as a float"""
+        # Use _find_field directly instead of _find_amount to get raw value
+        amount_str = self._find_field(data, self.AMOUNT_FIELDS, prefer_longer=False)
+        if amount_str:
+            try:
+                # Remove commas and convert to float
+                return float(str(amount_str).replace(',', ''))
+            except (ValueError, AttributeError):
+                pass
+        return None
+
+    def _extract_date_from_json(self, data: Dict[str, Any]) -> Optional[str]:
+        """Extract and parse transaction date from JSON, return ISO format"""
+        # Common date field names
+        date_fields = ['date', 'transaction_date', 'timestamp', 'value_date', 'datetime', 'created_at']
+        date_str = self._find_field(data, date_fields)
+
+        if not date_str:
+            return None
+
+        # Try parsing various date formats
+        date_formats = [
+            '%Y-%m-%d',
+            '%Y/%m/%d',
+            '%d-%m-%Y',
+            '%d/%m/%Y',
+            '%Y-%m-%dT%H:%M:%S',
+            '%Y-%m-%dT%H:%M:%S%z',
+            '%Y-%m-%dT%H:%M:%S.%f',
+            '%Y-%m-%dT%H:%M:%S.%f%z',
+        ]
+
+        for fmt in date_formats:
+            try:
+                dt = datetime.strptime(date_str[:19], fmt[:19])  # Truncate to match format length
+                return dt.strftime('%Y-%m-%d')
+            except (ValueError, IndexError):
+                continue
+
+        return None
 
     def _json_to_compact_text(self, data: Dict[str, Any]) -> str:
         """

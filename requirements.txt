@@ -28,7 +28,8 @@ hiredis==2.2.3
 # Utilities
 python-dotenv==1.0.0
 tqdm==4.66.1
-requests==2.31.0  # For LLM API calls
+requests==2.31.0  # For LLM API calls (synchronous)
+aiohttp==3.9.1  # For async LLM API calls with parallelization
 
 # Testing
 pytest==7.4.3
