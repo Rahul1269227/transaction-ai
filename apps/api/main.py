@@ -852,7 +852,7 @@ async def trigger_training(request: TrainingRequest, background_tasks: Backgroun
         raise HTTPException(status_code=500, detail=f"Training failed: {exc}")
 
 
-@app.post("/api/feedback-learning", tags=["Training"])
+@app.post("/feedback-learning", tags=["Training"])
 async def trigger_feedback_learning(background_tasks: BackgroundTasks):
     """
     Trigger automatic learning from user feedback
@@ -928,7 +928,7 @@ async def trigger_feedback_learning(background_tasks: BackgroundTasks):
         )
 
 
-@app.post("/api/batch-categorize", tags=["Categorization"])
+@app.post("/batch-categorize", tags=["Categorization"])
 async def batch_categorize_simple(request: Dict[str, List[str]]):
     """
     Simplified batch categorization endpoint for UI
@@ -1000,7 +1000,7 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
         raise HTTPException(status_code=500, detail=f"Batch categorization failed: {exc}")
 
 
-@app.get("/api/stats", tags=["Stats"])
+@app.get("/stats", tags=["Stats"])
 async def get_stats():
     """Get real-time statistics from the database"""
     if SessionLocal is None:
