@@ -3,7 +3,7 @@ Active Learning Module
 Implements uncertainty sampling to prioritize low-confidence predictions for human review
 """
 
-from typing import List, Dict, Optional, Tuple
+from typing import Any, List, Dict, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
