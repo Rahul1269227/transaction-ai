@@ -102,6 +102,12 @@ data/labeled/*.yaml
 !data/few_shot_examples.jsonl
 !data/**/.gitkeep
 
+# Ignore very large raw data files (>50MB)
+data/raw/transactions_data.csv
+data/raw/train_fraud_labels.json
+data/raw/bank_transactions.csv
+data/raw/data/
+
 # Temporary data files
 data/feedback/*.jsonl
 data/feedback/*.json
