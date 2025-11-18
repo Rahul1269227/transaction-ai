@@ -7,6 +7,7 @@ Uses weighted voting for final decision
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 
@@ -15,8 +16,20 @@ from ..resolve import MerchantResolver
 from ..rules import RuleCategorizer
 from .classifier import EmbeddingClassifier
 from .llm_classifier import LLMClassifier
+from .mcc_classifier import MCCClassifier
 
 logger = logging.getLogger(__name__)
+
+# Load ensemble configuration from environment variables
+MERCHANT_CONFIDENCE_THRESHOLD = float(os.getenv("MERCHANT_CONFIDENCE_THRESHOLD", "0.70"))
+MERCHANT_CONFIDENCE_BOOST = float(os.getenv("MERCHANT_CONFIDENCE_BOOST", "0.10"))
+RULE_EARLY_EXIT_THRESHOLD = float(os.getenv("RULE_EARLY_EXIT_THRESHOLD", "0.95"))
+MCC_EARLY_EXIT_THRESHOLD = float(os.getenv("MCC_EARLY_EXIT_THRESHOLD", "0.90"))
+FULL_AGREEMENT_BOOST = float(os.getenv("FULL_AGREEMENT_BOOST", "0.20"))
+PARTIAL_AGREEMENT_BOOST = float(os.getenv("PARTIAL_AGREEMENT_BOOST", "0.10"))
+NO_AGREEMENT_PENALTY = float(os.getenv("NO_AGREEMENT_PENALTY", "0.15"))
+LLM_FALLBACK_THRESHOLD = float(os.getenv("LLM_FALLBACK_THRESHOLD", "0.60"))
+MAX_WORKERS = int(os.getenv("MAX_WORKERS", "4"))
 
 
 @dataclass
@@ -38,7 +51,8 @@ class EnsembleRouter:
     Ensemble categorization router - TRUE HYBRID APPROACH
 
     Strategy:
-    1. Run ALL three methods in PARALLEL:
+    1. Run ALL four methods in PARALLEL:
+       - MCC-based categorization (when MCC code available)
        - Rule-based categorization
        - ML embedding classifier
        - LLM-based classifier
@@ -49,10 +63,42 @@ class EnsembleRouter:
        - Weighted voting based on method reliability
 
     Weights (configurable):
-    - Rules: 0.3 (fast, deterministic, good for known patterns)
-    - ML Embeddings: 0.4 (balanced, trained on data)
-    - LLM: 0.3 (reasoning, handles edge cases)
+    - MCC: 0.25 (highly accurate when available, ISO standard)
+    - Rules: 0.25 (fast, deterministic, good for known patterns)
+    - ML Embeddings: 0.30 (balanced, trained on data)
+    - LLM: 0.20 (reasoning, handles edge cases)
     """
+
+    # Category-specific confidence thresholds
+    # Critical categories require higher confidence for auto-accept and review
+    CATEGORY_THRESHOLDS = {
+        # Critical financial categories - higher thresholds
+        "Investments": {"auto_accept": 0.90, "review": 0.70},
+        "Income/Salary": {"auto_accept": 0.90, "review": 0.70},
+        "Rent": {"auto_accept": 0.90, "review": 0.70},
+        "Fees & Charges": {"auto_accept": 0.90, "review": 0.70},
+        "Bills": {"auto_accept": 0.88, "review": 0.65},
+        "Transfers/UPI": {"auto_accept": 0.88, "review": 0.65},
+        "Fraud & Security": {"auto_accept": 0.95, "review": 0.80},  # Highest threshold
+
+        # Medium-importance categories - standard thresholds
+        "Travel": {"auto_accept": 0.85, "review": 0.60},
+        "Health": {"auto_accept": 0.85, "review": 0.60},
+        "Education": {"auto_accept": 0.85, "review": 0.60},
+        "Fuel": {"auto_accept": 0.85, "review": 0.60},
+        "Utilities": {"auto_accept": 0.85, "review": 0.60},
+
+        # Low-risk categories - lower thresholds
+        "Food & Dining": {"auto_accept": 0.80, "review": 0.50},
+        "Groceries": {"auto_accept": 0.80, "review": 0.50},
+        "Shopping": {"auto_accept": 0.80, "review": 0.50},
+        "Entertainment": {"auto_accept": 0.80, "review": 0.50},
+        "Transport": {"auto_accept": 0.80, "review": 0.50},
+        "ATM/Cash": {"auto_accept": 0.85, "review": 0.60},
+
+        # Default for uncategorized
+        "Other": {"auto_accept": 0.95, "review": 0.80},
+    }
 
     def __init__(
         self,
@@ -62,15 +108,17 @@ class EnsembleRouter:
         llm_url: str = "http://llm-service:11434",
         llm_model: str = "llama3.1:8b",
         few_shot_examples_path: Optional[str] = None,
-        rule_weight: float = 0.3,
-        ml_weight: float = 0.4,
-        llm_weight: float = 0.3,
+        mcc_weight: float = 0.25,
+        rule_weight: float = 0.25,
+        ml_weight: float = 0.30,
+        llm_weight: float = 0.20,
         auto_accept_threshold: float = 0.85,
         review_threshold: float = 0.60,
         enable_parallel: bool = True,
         llm_timeout: float = 120.0,  # 120-second timeout for LLM (allows time for inference + parallelization)
         fast_mode: bool = False,  # Skip LLM when rule+ML agree with high confidence
-        fast_mode_threshold: float = 0.90  # Confidence threshold for fast mode (rule+ML agreement)
+        fast_mode_threshold: float = 0.90,  # Confidence threshold for fast mode (rule+ML agreement)
+        use_category_thresholds: bool = True  # Use category-specific thresholds
     ):
         """
         Initialize ensemble router
@@ -82,6 +130,7 @@ class EnsembleRouter:
             llm_url: Ollama LLM service URL
             llm_model: LLM model name
             few_shot_examples_path: Path to few-shot examples for LLM
+            mcc_weight: Weight for MCC-based method (0-1)
             rule_weight: Weight for rule-based method (0-1)
             ml_weight: Weight for ML method (0-1)
             llm_weight: Weight for LLM method (0-1)
@@ -92,6 +141,7 @@ class EnsembleRouter:
             fast_mode: Skip LLM when rule+ML agree with high confidence (default: False)
             fast_mode_threshold: Confidence threshold for fast mode (default: 0.90)
         """
+        self.mcc_weight = mcc_weight
         self.rule_weight = rule_weight
         self.ml_weight = ml_weight
         self.llm_weight = llm_weight
@@ -101,10 +151,12 @@ class EnsembleRouter:
         self.llm_timeout = llm_timeout
         self.fast_mode = fast_mode
         self.fast_mode_threshold = fast_mode_threshold
+        self.use_category_thresholds = use_category_thresholds
 
         # Normalize weights
-        total_weight = rule_weight + ml_weight + llm_weight
+        total_weight = mcc_weight + rule_weight + ml_weight + llm_weight
         if total_weight > 0:
+            self.mcc_weight /= total_weight
             self.rule_weight /= total_weight
             self.ml_weight /= total_weight
             self.llm_weight /= total_weight
@@ -130,6 +182,14 @@ class EnsembleRouter:
                 logger.info("Rule categorizer initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize rule categorizer: {e}")
+
+        # Initialize MCC classifier
+        self.mcc_classifier = None
+        try:
+            self.mcc_classifier = MCCClassifier()
+            logger.info("MCC classifier initialized")
+        except Exception as e:
+            logger.warning(f"Failed to initialize MCC classifier: {e}")
 
         # Initialize ML classifier
         self.ml_classifier = None
@@ -164,14 +224,61 @@ class EnsembleRouter:
             logger.warning(f"Failed to initialize LLM classifier: {e}")
 
         # Thread pool for parallel execution
-        self.executor = ThreadPoolExecutor(max_workers=3) if enable_parallel else None
+        self.executor = ThreadPoolExecutor(max_workers=MAX_WORKERS) if enable_parallel else None
+
+    def _get_category_threshold(self, category: str, threshold_type: str) -> float:
+        """
+        Get category-specific threshold
+
+        Args:
+            category: Category name
+            threshold_type: Either 'auto_accept' or 'review'
+
+        Returns:
+            Threshold value (float)
+        """
+        if not self.use_category_thresholds:
+            # Use global thresholds
+            if threshold_type == 'auto_accept':
+                return self.auto_accept_threshold
+            else:
+                return self.review_threshold
+
+        # Get category-specific threshold
+        category_config = self.CATEGORY_THRESHOLDS.get(category)
+        if category_config:
+            return category_config.get(threshold_type,
+                                      self.auto_accept_threshold if threshold_type == 'auto_accept' else self.review_threshold)
+
+        # Fallback to global thresholds if category not found
+        return self.auto_accept_threshold if threshold_type == 'auto_accept' else self.review_threshold
+
+    def _run_mcc_classifier(
+        self,
+        text: str,
+        mcc: Optional[str]
+    ) -> Optional[Tuple[str, float, str]]:
+        """Run MCC-based classifier"""
+        if not self.mcc_classifier:
+            return None
+
+        try:
+            result = self.mcc_classifier.categorize(text=text, mcc=mcc)
+            # Only return result if MCC was actually available and matched
+            if result['confidence'] > 0.0:
+                return (result['category'], result['confidence'], result['mcc_code'])
+            return None
+        except Exception as e:
+            logger.error(f"MCC classifier error: {e}")
+            return None
 
     def _run_rule_categorizer(
         self,
         search_text: str,
         merchant: Optional[str],
         channel: Optional[str],
-        amount: Optional[float]
+        amount: Optional[float],
+        date: Optional[str] = None
     ) -> Optional[Tuple[str, float, List[str], Optional[str]]]:
         """Run rule-based categorization"""
         if not self.rule_categorizer:
@@ -182,14 +289,17 @@ class EnsembleRouter:
                 text=search_text,
                 merchant=merchant,
                 channel=channel,
-                amount=amount
+                amount=amount,
+                date=date
             )
-            return (
-                result.category,
-                result.confidence,
-                result.explanations,
-                result.subcategory
-            )
+            if result:
+                return (
+                    result.category,
+                    result.confidence,
+                    result.explanations,
+                    result.subcategory
+                )
+            return None
         except Exception as e:
             logger.error(f"Rule categorizer error: {e}")
             return None
@@ -241,8 +351,55 @@ class EnsembleRouter:
             logger.warning(f"LLM classifier error: {e}")
             return None
 
+    def _normalize_category_name(self, category: str) -> str:
+        """
+        Normalize category names to match taxonomy
+        Maps legacy/variant category names to standard taxonomy categories
+        
+        Args:
+            category: Category name from any method
+            
+        Returns:
+            Normalized category name matching taxonomy
+        """
+        if not category:
+            return category
+        
+        # First, try to use taxonomy from rule categorizer if available
+        if self.rule_categorizer and hasattr(self.rule_categorizer, 'categories'):
+            # Check if category is a category ID (like "bills")
+            if category in self.rule_categorizer.categories:
+                taxonomy_category = self.rule_categorizer.categories[category]
+                return taxonomy_category.get('name', category)
+            
+            # Check if category matches any taxonomy category name
+            for cat_id, cat_info in self.rule_categorizer.categories.items():
+                if cat_info.get('name', '').lower() == category.lower():
+                    return cat_info.get('name', category)
+        
+        # Fallback: Static normalization mapping for common mismatches
+        # Maps variant names to standard taxonomy category names
+        CATEGORY_NORMALIZATION = {
+            # Utilities -> Bills (most common mismatch)
+            "utilities": "Bills",
+            "Utilities": "Bills",
+            "utility": "Bills",
+            "Utility": "Bills",
+            "bills": "Bills",  # Handle lowercase ID
+            "Bills": "Bills",  # Ensure proper case
+            
+            # Ensure consistency with taxonomy category names
+            # (Add more mappings as needed)
+        }
+        
+        normalized = CATEGORY_NORMALIZATION.get(category, category)
+        if normalized != category:
+            logger.debug(f"Normalized category '{category}' -> '{normalized}'")
+        return normalized
+
     def _ensemble_vote(
         self,
+        mcc_result: Optional[Tuple],
         rule_result: Optional[Tuple],
         ml_result: Optional[Tuple],
         llm_result: Optional[Tuple]
@@ -251,6 +408,7 @@ class EnsembleRouter:
         Combine results from all methods using weighted voting
 
         Args:
+            mcc_result: (category, confidence, mcc_code)
             rule_result: (category, confidence, explanations, subcategory)
             ml_result: (category, confidence, alternatives)
             llm_result: (category, confidence, reasoning)
@@ -258,8 +416,21 @@ class EnsembleRouter:
         Returns:
             Final CategorizationResult
         """
+        # Normalize category names before voting to ensure consistency
+        if mcc_result:
+            mcc_result = (self._normalize_category_name(mcc_result[0]), mcc_result[1], mcc_result[2])
+        if rule_result:
+            rule_result = (self._normalize_category_name(rule_result[0]), rule_result[1], rule_result[2], rule_result[3])
+        if ml_result:
+            # Normalize main category and alternatives
+            normalized_alts = [(self._normalize_category_name(cat), conf) for cat, conf in ml_result[2]]
+            ml_result = (self._normalize_category_name(ml_result[0]), ml_result[1], normalized_alts)
+        if llm_result:
+            llm_result = (self._normalize_category_name(llm_result[0]), llm_result[1], llm_result[2])
+        
         # Log individual method results
         logger.info("=== ENSEMBLE VOTING DETAILS ===")
+        logger.info(f"MCC result:  {mcc_result[0] if mcc_result else 'None'} (conf: {mcc_result[1] if mcc_result else 0:.3f}, weight: {self.mcc_weight})")
         logger.info(f"Rule result: {rule_result[0] if rule_result else 'None'} (conf: {rule_result[1] if rule_result else 0:.3f}, weight: {self.rule_weight})")
         logger.info(f"ML result:   {ml_result[0] if ml_result else 'None'} (conf: {ml_result[1] if ml_result else 0:.3f}, weight: {self.ml_weight})")
         logger.info(f"LLM result:  {llm_result[0] if llm_result else 'None'} (conf: {llm_result[1] if llm_result else 0:.3f}, weight: {self.llm_weight})")
@@ -267,6 +438,13 @@ class EnsembleRouter:
         # Collect votes with weights
         votes = {}
         total_active_weight = 0.0  # Track total weight of active methods
+
+        if mcc_result:
+            category, conf, mcc_code = mcc_result
+            weighted_vote = conf * self.mcc_weight
+            votes[category] = votes.get(category, 0) + weighted_vote
+            total_active_weight += self.mcc_weight
+            logger.info(f"  → MCC votes for '{category}' (code: {mcc_code}): {weighted_vote:.4f}")
 
         if rule_result:
             category, conf, expl, subcat = rule_result
@@ -318,6 +496,10 @@ class EnsembleRouter:
         explanations = []
         subcategory = None
 
+        if mcc_result and mcc_result[0] == winner_category:
+            methods_voted.append("mcc")
+            explanations.append(f"mcc_code={mcc_result[2]}")
+
         if rule_result and rule_result[0] == winner_category:
             methods_voted.append("rule")
             explanations.extend(rule_result[2])
@@ -333,61 +515,102 @@ class EnsembleRouter:
 
         # FIX #3: BETTER CONFIDENCE CALIBRATION
         # Calculate agreement metrics
-        num_methods = sum([rule_result is not None, ml_result is not None, llm_result is not None])
+        num_methods = sum([mcc_result is not None, rule_result is not None, ml_result is not None, llm_result is not None])
         agreement_count = len(methods_voted)
 
         # Stronger rewards/penalties based on agreement
         if num_methods >= 2:
             if agreement_count == num_methods:
-                # Full agreement: +20% boost (was +10%)
-                agreement_adjustment = 0.20
-                logger.info(f"Full agreement ({agreement_count}/{num_methods}): +20% confidence boost")
+                # Full agreement: use configured boost
+                agreement_adjustment = FULL_AGREEMENT_BOOST
+                logger.info(f"Full agreement ({agreement_count}/{num_methods}): +{FULL_AGREEMENT_BOOST*100:.0f}% confidence boost")
             elif agreement_count >= 2:
-                # Partial agreement (2+ methods): +10% boost
-                agreement_adjustment = 0.10
-                logger.info(f"Partial agreement ({agreement_count}/{num_methods}): +10% confidence boost")
+                # Partial agreement (2+ methods): use configured boost
+                agreement_adjustment = PARTIAL_AGREEMENT_BOOST
+                logger.info(f"Partial agreement ({agreement_count}/{num_methods}): +{PARTIAL_AGREEMENT_BOOST*100:.0f}% confidence boost")
             elif agreement_count == 1:
-                # No agreement: -15% penalty (winner is alone)
-                agreement_adjustment = -0.15
-                logger.info(f"No agreement ({agreement_count}/{num_methods}): -15% confidence penalty")
+                # No agreement (multiple methods disagree): use configured penalty
+                agreement_adjustment = -NO_AGREEMENT_PENALTY
+                logger.info(f"No agreement ({agreement_count}/{num_methods}): -{NO_AGREEMENT_PENALTY*100:.0f}% confidence penalty")
             else:
                 agreement_adjustment = 0.0
         else:
-            # Only one method available
+            # Only one method available - no penalty, this is the best we have
             agreement_adjustment = 0.0
+            logger.info(f"Single method available ({methods_voted[0] if methods_voted else 'unknown'}): no adjustment")
 
         # Final confidence with calibration (capped at 0.05-1.0)
         # Use normalized_score instead of winner_score to account for active methods only
         final_confidence = max(0.05, min(1.0, normalized_score + agreement_adjustment))
 
         # Determine method string
+        # Collect all methods that participated (not just those that voted for winner)
+        all_participating_methods = []
+        if mcc_result:
+            all_participating_methods.append("mcc")
+        if rule_result:
+            all_participating_methods.append("rule")
+        if ml_result:
+            all_participating_methods.append("ml")
+        if llm_result:
+            all_participating_methods.append("llm")
+
         if agreement_count == num_methods and num_methods > 1:
             method = "ensemble_unanimous"
-        elif agreement_count > 1:
-            method = f"ensemble_{'+'.join(methods_voted)}"
+        elif num_methods > 1:
+            # Show all participating methods, not just those that agreed
+            method = f"ensemble_{'+'.join(all_participating_methods)}"
         else:
             method = methods_voted[0] if methods_voted else "ensemble"
 
-        # Get alternatives from ML if available
-        alternatives = None
-        if ml_result:
-            alternatives = ml_result[2]
+        # Enhanced ambiguity scoring: Collect all alternatives and rank by voting
+        alternatives = []
+
+        # Add ML alternatives if available
+        if ml_result and ml_result[2]:
+            for alt_cat, alt_conf in ml_result[2]:
+                if alt_cat != winner_category:
+                    alternatives.append((alt_cat, alt_conf))
+
+        # Add categories that received votes but didn't win
+        for cat, vote_score in sorted(votes.items(), key=lambda x: x[1], reverse=True):
+            if cat != winner_category and cat not in [a[0] for a in alternatives]:
+                # Normalize vote score same way as winner
+                normalized_alt_score = vote_score / total_active_weight if total_active_weight > 0 else vote_score
+                alternatives.append((cat, normalized_alt_score))
+
+        # Keep top 3 alternatives, sorted by confidence
+        alternatives = sorted(alternatives, key=lambda x: x[1], reverse=True)[:3]
+
+        # Calculate ambiguity score (0-1, higher = more ambiguous)
+        if alternatives:
+            # Ambiguity is high when top alternative is close to winner
+            top_alternative_conf = alternatives[0][1] if alternatives else 0.0
+            ambiguity_score = min(1.0, top_alternative_conf / (final_confidence + 0.001))
+        else:
+            ambiguity_score = 0.0
 
         # Store individual votes for transparency
         ensemble_votes = {
+            "mcc": {"category": mcc_result[0], "confidence": mcc_result[1], "mcc_code": mcc_result[2]} if mcc_result else None,
             "rule": {"category": rule_result[0], "confidence": rule_result[1]} if rule_result else None,
             "ml": {"category": ml_result[0], "confidence": ml_result[1]} if ml_result else None,
             "llm": {"category": llm_result[0], "confidence": llm_result[1]} if llm_result else None,
             "weighted_votes": votes,
             "agreement_count": agreement_count,
-            "total_methods": num_methods
+            "total_methods": num_methods,
+            "ambiguity_score": ambiguity_score
         }
+
+        # Get category-specific review threshold
+        category_review_threshold = self._get_category_threshold(winner_category, 'review')
 
         # Log final decision
         logger.info(f"All votes: {votes}")
         logger.info(f"Winner: '{winner_category}' with score {winner_score:.4f}")
         logger.info(f"Agreement: {agreement_count}/{num_methods} methods agreed")
         logger.info(f"Final confidence: {final_confidence:.3f} (method: {method})")
+        logger.info(f"Category-specific review threshold: {category_review_threshold:.3f}")
         logger.info("=" * 35)
 
         return CategorizationResult(
@@ -397,7 +620,7 @@ class EnsembleRouter:
             method=method,
             explanations=explanations,
             alternatives=alternatives,
-            requires_review=final_confidence < self.review_threshold,
+            requires_review=final_confidence < category_review_threshold,
             ensemble_votes=ensemble_votes
         )
 
@@ -407,7 +630,8 @@ class EnsembleRouter:
         amount: Optional[float] = None,
         date: Optional[str] = None,
         currency: str = "INR",
-        merchant: Optional[str] = None
+        merchant: Optional[str] = None,
+        mcc: Optional[str] = None
     ) -> CategorizationResult:
         """
         Categorize a transaction using ensemble of all methods
@@ -418,6 +642,7 @@ class EnsembleRouter:
             date: Transaction date
             currency: Currency code
             merchant: Merchant name (optional, extracted from JSON)
+            mcc: Merchant Category Code (optional, 4-digit code)
 
         Returns:
             CategorizationResult with category and metadata
@@ -459,11 +684,11 @@ class EnsembleRouter:
                 merchant_confidence = match.similarity_score
 
         # FIX #1: MERCHANT-FIRST STRATEGY - Merchant matches should dominate
-        # Lower threshold to 0.70 for fuzzy matches (already high-quality from gazetteer)
-        # Boost confidence to 95% when merchant is clearly identified
-        if merchant_confidence >= 0.70:
+        # Use configured threshold for fuzzy matches (already high-quality from gazetteer)
+        # Boost confidence when merchant is clearly identified
+        if merchant_confidence >= MERCHANT_CONFIDENCE_THRESHOLD:
             # Boost confidence for merchant matches (they're highly reliable)
-            boosted_confidence = min(0.95, merchant_confidence + 0.10)
+            boosted_confidence = min(0.95, merchant_confidence + MERCHANT_CONFIDENCE_BOOST)
             logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%} -> {boosted_confidence:.2%})")
             return CategorizationResult(
                 category=merchant_category,
@@ -485,19 +710,21 @@ class EnsembleRouter:
             )
 
         # Step 3: Run categorizers (with fast mode optimization)
+        mcc_result = None
         rule_result = None
         ml_result = None
         llm_result = None
 
-        # Try rule-based first for potential early exit
+        # Try rule-based FIRST for potential early exit (before MCC)
+        # This ensures fraud/security and other high-priority deterministic rules take precedence
         if self.rule_categorizer:
             rule_result = self._run_rule_categorizer(
-                search_text, resolved_merchant or merchant, channel, amount
+                search_text, resolved_merchant or merchant, channel, amount, date
             )
 
-            # HIGH-CONFIDENCE RULE EARLY EXIT (deterministic rules like ATM, EMI, Salary, Fuel)
-            if rule_result and rule_result[1] >= 0.95:
-                logger.info(f"High-confidence deterministic rule: {rule_result[0]} ({rule_result[1]:.2%}) - skipping ML/LLM")
+            # HIGH-CONFIDENCE RULE EARLY EXIT (deterministic rules like Fraud, ATM, EMI, Salary, Fuel)
+            if rule_result and rule_result[1] >= RULE_EARLY_EXIT_THRESHOLD:
+                logger.info(f"High-confidence deterministic rule: {rule_result[0]} ({rule_result[1]:.2%}) - skipping MCC/ML/LLM")
                 return CategorizationResult(
                     category=rule_result[0],
                     subcategory=rule_result[3],
@@ -508,9 +735,36 @@ class EnsembleRouter:
                     merchant_resolved=resolved_merchant,
                     ensemble_votes={
                         "rule": {"category": rule_result[0], "confidence": rule_result[1]},
+                        "mcc": None,
                         "ml": None,
                         "llm": None,
                         "weighted_votes": {rule_result[0]: rule_result[1]},
+                        "agreement_count": 1,
+                        "total_methods": 1
+                    }
+                )
+
+        # Try MCC second - if high confidence MCC match, use it directly
+        # (only if deterministic rules didn't match)
+        if mcc and self.mcc_classifier:
+            mcc_result = self._run_mcc_classifier(text, mcc)
+            # HIGH-CONFIDENCE MCC EARLY EXIT (MCC codes are highly reliable)
+            if mcc_result and mcc_result[1] >= MCC_EARLY_EXIT_THRESHOLD:
+                logger.info(f"High-confidence MCC match: {mcc_result[0]} (code: {mcc_result[2]}, conf: {mcc_result[1]:.2%}) - skipping other methods")
+                return CategorizationResult(
+                    category=mcc_result[0],
+                    subcategory=None,
+                    confidence=mcc_result[1],
+                    method="mcc_deterministic",
+                    explanations=[f"mcc_code={mcc_result[2]}"],
+                    requires_review=False,
+                    merchant_resolved=resolved_merchant,
+                    ensemble_votes={
+                        "mcc": {"category": mcc_result[0], "confidence": mcc_result[1], "mcc_code": mcc_result[2]},
+                        "rule": None,
+                        "ml": None,
+                        "llm": None,
+                        "weighted_votes": {mcc_result[0]: mcc_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
                     }
@@ -521,12 +775,21 @@ class EnsembleRouter:
             futures = {}
             timeouts = {}
 
+            # Don't re-run MCC if we already ran it for early exit check
+            # (mcc_result will be None if not run, or < 0.90 if run but didn't exit)
+            if mcc and self.mcc_classifier and mcc_result is None:
+                futures['mcc'] = self.executor.submit(
+                    self._run_mcc_classifier,
+                    text, mcc
+                )
+                timeouts['mcc'] = 1.0  # MCC is instant
+
             # Don't re-run rule if we already ran it for early exit check
             # (rule_result will be None if not run, or < 0.95 if run but didn't exit)
             if self.rule_categorizer and rule_result is None:
                 futures['rule'] = self.executor.submit(
                     self._run_rule_categorizer,
-                    search_text, resolved_merchant or merchant, channel, amount
+                    search_text, resolved_merchant or merchant, channel, amount, date
                 )
                 timeouts['rule'] = 2.0  # Rules are fast
 
@@ -541,9 +804,7 @@ class EnsembleRouter:
             # Wait for rule and ML first, then decide if LLM is needed
             should_skip_llm = False
             if self.llm_classifier:
-                # Wait for rule and ML first
-                rule_result = None
-                ml_result = None
+                # Wait for rule and ML first (but don't reset if already set from early-exit check)
                 for method in ['rule', 'ml']:
                     if method in futures:
                         try:
@@ -575,9 +836,9 @@ class EnsembleRouter:
                 # Also skip if ML confidence is high enough (LLM fallback logic)
                 if not should_skip_llm and ml_result:
                     ml_conf = ml_result[1]
-                    if ml_conf >= 0.60:  # 60% threshold for ML confidence
+                    if ml_conf >= LLM_FALLBACK_THRESHOLD:
                         should_skip_llm = True
-                        logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= 0.60 - skipping LLM")
+                        logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= {LLM_FALLBACK_THRESHOLD} - skipping LLM")
 
             if self.llm_classifier and not should_skip_llm:
                 futures['llm'] = self.executor.submit(
@@ -591,7 +852,9 @@ class EnsembleRouter:
                 try:
                     timeout = timeouts.get(method, 10.0)
                     result = future.result(timeout=timeout)
-                    if method == 'rule':
+                    if method == 'mcc':
+                        mcc_result = result
+                    elif method == 'rule':
                         rule_result = result
                     elif method == 'ml':
                         ml_result = result
@@ -604,9 +867,16 @@ class EnsembleRouter:
 
         else:
             # Sequential execution
-            rule_result = self._run_rule_categorizer(
-                search_text, resolved_merchant or merchant, channel, amount
-            )
+            # Run MCC if not already run
+            if mcc and self.mcc_classifier and mcc_result is None:
+                mcc_result = self._run_mcc_classifier(text, mcc)
+
+            # Run rules if not already run
+            if self.rule_categorizer and rule_result is None:
+                rule_result = self._run_rule_categorizer(
+                    search_text, resolved_merchant or merchant, channel, amount, date
+                )
+
             ml_result = self._run_ml_classifier(search_text, normalized)
 
             # FIX #2: LLM AS FALLBACK - Only run when needed
@@ -627,9 +897,9 @@ class EnsembleRouter:
             # Also check ML confidence threshold (LLM fallback logic)
             if not should_skip_llm and ml_result:
                 ml_conf = ml_result[1]
-                if ml_conf >= 0.60:  # 60% threshold
+                if ml_conf >= LLM_FALLBACK_THRESHOLD:
                     should_skip_llm = True
-                    logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= 0.60 - skipping LLM")
+                    logger.info(f"LLM fallback: ML confidence {ml_conf:.2f} >= {LLM_FALLBACK_THRESHOLD} - skipping LLM")
 
             # Run LLM only if needed
             if should_skip_llm:
@@ -639,7 +909,7 @@ class EnsembleRouter:
                 llm_result = self._run_llm_classifier(text, amount)
 
         # Step 4: Ensemble voting
-        result = self._ensemble_vote(rule_result, ml_result, llm_result)
+        result = self._ensemble_vote(mcc_result, rule_result, ml_result, llm_result)
         result.merchant_resolved = resolved_merchant
 
         return result
@@ -652,7 +922,7 @@ class EnsembleRouter:
         Categorize a batch of transactions
 
         Args:
-            transactions: List of transaction dicts
+            transactions: List of transaction dicts (can include 'mcc' field)
 
         Returns:
             List of CategorizationResult
@@ -663,7 +933,8 @@ class EnsembleRouter:
                 text=txn.get('text', txn.get('description', '')),
                 amount=txn.get('amount'),
                 date=txn.get('date', txn.get('timestamp')),
-                currency=txn.get('currency', 'INR')
+                currency=txn.get('currency', 'INR'),
+                mcc=txn.get('mcc')
             )
             results.append(result)
         return results
