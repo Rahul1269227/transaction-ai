@@ -31,6 +31,7 @@ class TransactionInput(BaseModel):
     amount: Optional[float] = Field(None, description="Transaction amount")
     date: Optional[str] = Field(None, description="Transaction date (YYYY-MM-DD or other formats)")
     currency: str = Field(default="INR", description="Currency code")
+    mcc: Optional[str] = Field(None, description="Merchant Category Code (4-digit ISO 18245 code)")
     metadata: Optional[Dict[str, Any]] = Field(default={}, description="Additional metadata")
 
     class Config:
@@ -39,7 +40,8 @@ class TransactionInput(BaseModel):
                 "text": "UPI-1234567890-ZOMATO PAY*ABCD",
                 "amount": 249.00,
                 "date": "2025-11-10",
-                "currency": "INR"
+                "currency": "INR",
+                "mcc": "5812"
             }
         }
 

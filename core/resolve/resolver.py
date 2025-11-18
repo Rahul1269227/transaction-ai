@@ -145,7 +145,8 @@ class MerchantResolver:
 
         # Remove common noise patterns
         text = re.sub(r'\*PAY|\*PAYMENT|\-PAY|\-PAYMENT', '', text)
-        text = re.sub(r'[\*\-/]+', ' ', text)
+        text = re.sub(r'INTL TRX ', '', text)  # Remove "INTL TRX" prefix
+        text = re.sub(r'[\*\-/\.]+', ' ', text)  # Also remove dots
         text = re.sub(r'\s+', ' ', text)
         text = text.strip()
 
@@ -201,6 +202,7 @@ class MerchantResolver:
         """Try exact match on canonical name or aliases"""
         text_upper = text.upper()
 
+        # First try exact match
         if text_upper in self.alias_to_merchant:
             merchant_id = self.alias_to_merchant[text_upper]
             merchant = self.merchants[merchant_id]
@@ -214,6 +216,36 @@ class MerchantResolver:
                 similarity_score=1.0,
                 match_type='exact'
             )
+
+        # Try substring match (alias in text or text in alias)
+        # This helps with "Netflix subscription" matching "NETFLIX" alias
+        for alias, merchant_id in self.alias_to_merchant.items():
+            # Skip wildcards for substring matching
+            if '*' in alias:
+                continue
+
+            # Check if alias is a substring of text or vice versa
+            # Use word boundary matching to avoid false positives
+            alias_clean = alias.replace('*', '').strip()
+            if len(alias_clean) >= 4:  # Only for meaningful aliases (4+ chars)
+                # Check if alias appears as a word in the text
+                if alias_clean in text_upper or text_upper in alias_clean:
+                    # Verify it's a word match, not just substring
+                    words_in_text = text_upper.split()
+                    if alias_clean in words_in_text or any(alias_clean in word for word in words_in_text):
+                        merchant = self.merchants[merchant_id]
+                        # High score for word-level matches (merchant name found in transaction text)
+                        # Don't penalize for extra context words like "coffee grande latte"
+                        score = 0.85  # High confidence for clear merchant name matches
+                        return MerchantMatch(
+                            merchant_id=merchant_id,
+                            canonical_name=merchant.canonical_name,
+                            aliases=merchant.aliases,
+                            category=merchant.category,
+                            subcategory=merchant.subcategory,
+                            similarity_score=score,
+                            match_type='substring'
+                        )
 
         return None
 

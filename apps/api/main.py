@@ -88,9 +88,10 @@ REDIS_URL = os.getenv("REDIS_URL")
 CACHE_TTL = int(os.getenv("CACHE_TTL", "600"))
 AUTO_ACCEPT_THRESHOLD = float(os.getenv("AUTO_ACCEPT_THRESHOLD", "0.85"))
 REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.60"))
-RULE_WEIGHT = float(os.getenv("RULE_WEIGHT", "0.3"))
-ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.4"))
-LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.3"))
+MCC_WEIGHT = float(os.getenv("MCC_WEIGHT", "0.25"))
+RULE_WEIGHT = float(os.getenv("RULE_WEIGHT", "0.25"))
+ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.30"))
+LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.20"))
 LLM_URL = os.getenv("LLM_URL", "http://llm-service:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
 LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "3.0"))  # Aggressive 3-second timeout
@@ -482,6 +483,7 @@ def build_router() -> RouterType:
             llm_url=LLM_URL,
             llm_model=LLM_MODEL,
             few_shot_examples_path=few_shot,
+            mcc_weight=MCC_WEIGHT,
             rule_weight=RULE_WEIGHT,
             ml_weight=ML_WEIGHT,
             llm_weight=LLM_WEIGHT,
@@ -675,6 +677,7 @@ async def categorize_transaction(transaction: TransactionInput):
             date=final_date,
             currency=final_currency,
             merchant=final_merchant,
+            mcc=transaction.mcc,
         )
 
         response = build_transaction_output(transaction, normalized_payload, result)
@@ -712,6 +715,7 @@ async def categorize_batch(batch: TransactionBatchInput):
                 "amount": txn.amount,
                 "date": txn.date,
                 "currency": txn.currency,
+                "mcc": txn.mcc,
             }
             for txn in batch.transactions
         ]

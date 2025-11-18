@@ -6,6 +6,7 @@ Uses local LLM (via Ollama) for transaction categorization
 import hashlib
 import json
 import logging
+import os
 from typing import List, Dict, Optional, Tuple, Any
 from pathlib import Path
 import requests
@@ -16,6 +17,16 @@ from concurrent.futures import ThreadPoolExecutor
 import time
 
 logger = logging.getLogger(__name__)
+
+# Load configuration from environment variables
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.05"))
+LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.8"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "80"))
+LLM_NUM_THREADS = int(os.getenv("LLM_NUM_THREADS", "4"))
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "120"))
+LLM_FEW_SHOT_LIMIT = int(os.getenv("LLM_FEW_SHOT_LIMIT", "5"))
+LLM_MAX_CONCURRENT = int(os.getenv("LLM_MAX_CONCURRENT", "4"))
+LLM_HEALTH_CHECK_TIMEOUT = int(os.getenv("LLM_HEALTH_CHECK_TIMEOUT", "5"))
 
 
 class LLMClassifier:
@@ -140,7 +151,7 @@ Response Format (JSON only, no extra text):
         # Add few-shot examples if available
         if self.few_shot_examples:
             prompt += "\nExamples:\n"
-            for ex in self.few_shot_examples[:5]:  # Use up to 5 examples
+            for ex in self.few_shot_examples[:LLM_FEW_SHOT_LIMIT]:  # Configurable limit
                 prompt += f"\nTransaction: {ex['text']}"
                 if ex.get('amount'):
                     prompt += f" | Amount: ₹{ex['amount']}"
@@ -164,7 +175,7 @@ Response Format (JSON only, no extra text):
         self,
         text: str,
         amount: Optional[float] = None,
-        timeout: int = 120,
+        timeout: Optional[int] = None,
         session: Optional[aiohttp.ClientSession] = None
     ) -> Tuple[str, float, str]:
         """
@@ -173,12 +184,15 @@ Response Format (JSON only, no extra text):
         Args:
             text: Transaction text
             amount: Transaction amount
-            timeout: Request timeout in seconds (increased to 120s)
+            timeout: Request timeout in seconds (defaults to LLM_REQUEST_TIMEOUT from env)
             session: Optional aiohttp session for connection pooling
 
         Returns:
             Tuple of (category, confidence, reasoning)
         """
+        # Use environment variable default if timeout not specified
+        if timeout is None:
+            timeout = LLM_REQUEST_TIMEOUT
         # Check cache first
         cache_key = self._get_cache_key(text, amount)
         if cache_key in self._response_cache:
@@ -206,10 +220,10 @@ Response Format (JSON only, no extra text):
                     "prompt": prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.05,
-                        "top_p": 0.8,
-                        "num_predict": 80,
-                        "num_thread": 4  # Parallelize within model inference
+                        "temperature": LLM_TEMPERATURE,
+                        "top_p": LLM_TOP_P,
+                        "num_predict": LLM_MAX_TOKENS,
+                        "num_thread": LLM_NUM_THREADS  # Parallelize within model inference
                     }
                 },
                 timeout=aiohttp.ClientTimeout(total=timeout)
@@ -275,7 +289,7 @@ Response Format (JSON only, no extra text):
         self,
         text: str,
         amount: Optional[float] = None,
-        timeout: int = 120
+        timeout: Optional[int] = None
     ) -> Tuple[str, float, str]:
         """
         Predict category for a single transaction using LLM (synchronous wrapper)
@@ -283,7 +297,7 @@ Response Format (JSON only, no extra text):
         Args:
             text: Transaction text
             amount: Transaction amount
-            timeout: Request timeout in seconds (increased to 120s)
+            timeout: Request timeout in seconds (defaults to LLM_REQUEST_TIMEOUT from env)
 
         Returns:
             Tuple of (category, confidence, reasoning)
@@ -297,6 +311,10 @@ Response Format (JSON only, no extra text):
 
         self._cache_misses += 1
 
+        # Use environment variable default if timeout not specified
+        if timeout is None:
+            timeout = LLM_REQUEST_TIMEOUT
+
         try:
             # Build prompt
             prompt = self._build_prompt(text, amount)
@@ -309,9 +327,9 @@ Response Format (JSON only, no extra text):
                     "prompt": prompt,
                     "stream": False,
                     "options": {
-                        "temperature": 0.05,  # Very low temperature for maximum consistency
-                        "top_p": 0.8,  # Lower for more focused responses
-                        "num_predict": 80  # Reduced from 150 to 80 for faster inference
+                        "temperature": LLM_TEMPERATURE,
+                        "top_p": LLM_TOP_P,
+                        "num_predict": LLM_MAX_TOKENS
                     }
                 },
                 timeout=timeout
@@ -473,7 +491,7 @@ Response Format (JSON only, no extra text):
     def check_health(self) -> bool:
         """Check if LLM service is available"""
         try:
-            response = requests.get(f"{self.ollama_url}/api/tags", timeout=5)
+            response = requests.get(f"{self.ollama_url}/api/tags", timeout=LLM_HEALTH_CHECK_TIMEOUT)
             return response.status_code == 200
         except:
             return False

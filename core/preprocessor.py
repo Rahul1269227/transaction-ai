@@ -39,22 +39,236 @@ class TransactionPreprocessor:
     # Common field names for currency
     CURRENCY_FIELDS = ['currency', 'currency_code', 'currencycode']
 
-    # Merchant category codes mapping to readable names
+    # Comprehensive Merchant Category Codes (MCC) mapping to transaction categories
+    # Based on ISO 18245 standard and common banking MCCs
     MCC_MAPPING = {
-        '5541': 'Fuel/Service Station',
-        '5812': 'Restaurants',
-        '5411': 'Grocery Store',
-        '5999': 'Retail Store',
-        '4111': 'Transportation',
-        '4121': 'Taxi/Rideshare',
-        '5311': 'Department Store',
-        '5732': 'Electronics Store',
-        '5912': 'Pharmacy',
-        '5942': 'Bookstore',
-        '7011': 'Hotel',
-        '7832': 'Movie Theater',
-        '5814': 'Fast Food',
-        '5815': 'Digital Media',
+        # Food & Dining (5812, 5814, 5813, 5811)
+        '5812': 'Food & Dining',  # Restaurants
+        '5814': 'Food & Dining',  # Fast Food
+        '5813': 'Food & Dining',  # Drinking Places (Bars, Taverns)
+        '5811': 'Food & Dining',  # Caterers
+
+        # Groceries (5411, 5422, 5451, 5462, 5499)
+        '5411': 'Groceries',  # Grocery Stores, Supermarkets
+        '5422': 'Groceries',  # Freezer and Locker Meat Provisioners
+        '5451': 'Groceries',  # Dairy Products Stores
+        '5462': 'Groceries',  # Bakeries
+        '5499': 'Groceries',  # Miscellaneous Food Stores
+
+        # Transport (4111, 4121, 4131, 4784, 4789, 7511, 7523)
+        '4111': 'Transport',  # Local/Suburban Commuter Passenger Transportation
+        '4112': 'Transport',  # Passenger Railways
+        '4119': 'Transport',  # Ambulance Services
+        '4121': 'Transport',  # Taxicabs and Limousines
+        '4131': 'Transport',  # Bus Lines
+        '4784': 'Transport',  # Tolls and Bridge Fees
+        '4789': 'Transport',  # Transportation Services
+        '7511': 'Transport',  # Truck Rentals
+        '7523': 'Transport',  # Parking Lots, Parking Meters, Garages
+        '7549': 'Transport',  # Towing Services
+
+        # Travel (3000-3299, 4411, 4511, 7011, 7012, 7032, 7033)
+        '3000': 'Travel',  # Airlines (general)
+        '3001': 'Travel',  # American Airlines
+        '3002': 'Travel',  # Air Canada
+        '3003': 'Travel',  # Air France
+        '3004': 'Travel',  # Air India
+        '3005': 'Travel',  # British Airways
+        '3006': 'Travel',  # Emirates
+        '3007': 'Travel',  # Lufthansa
+        '3008': 'Travel',  # United Airlines
+        '3009': 'Travel',  # Delta Airlines
+        '3010': 'Travel',  # Qatar Airways
+        '3050': 'Travel',  # Low-cost carriers
+        '3298': 'Travel',  # Miscellaneous Airlines
+        '4411': 'Travel',  # Steamships and Cruise Lines
+        '4511': 'Travel',  # Airlines
+        '4722': 'Travel',  # Travel Agencies and Tour Operators
+        '7011': 'Travel',  # Hotels, Motels, Resorts
+        '7012': 'Travel',  # Timeshares
+        '7032': 'Travel',  # Sporting and Recreational Camps
+        '7033': 'Travel',  # Trailer Parks and Campgrounds
+
+        # Fuel (5541, 5542, 5983)
+        '5541': 'Fuel',  # Service Stations (with or without ancillary services)
+        '5542': 'Fuel',  # Automated Fuel Dispensers
+        '5983': 'Fuel',  # Fuel Dealers (Non-Automotive)
+
+        # Utilities (4816, 4821)
+        '4816': 'Utilities',  # Computer Network/Information Services
+        '4821': 'Utilities',  # Telegraph Services
+
+        # Shopping (5200-5999, 5311, 5331, 5399, 5691, 5699, 5732, 5734, 5735, 5999)
+        '5200': 'Shopping',  # Home Supply Warehouse Stores
+        '5211': 'Shopping',  # Lumber and Building Materials Stores
+        '5231': 'Shopping',  # Glass, Paint, and Wallpaper Stores
+        '5251': 'Shopping',  # Hardware Stores
+        '5261': 'Shopping',  # Nurseries and Lawn and Garden Supply Stores
+        '5271': 'Shopping',  # Mobile Home Dealers
+        '5300': 'Shopping',  # Wholesale Clubs
+        '5311': 'Shopping',  # Department Stores
+        '5331': 'Shopping',  # Variety Stores
+        '5399': 'Shopping',  # Miscellaneous General Merchandise
+        '5611': 'Shopping',  # Men's and Boys' Clothing and Accessories Stores
+        '5621': 'Shopping',  # Women's Ready-to-Wear Stores
+        '5631': 'Shopping',  # Women's Accessory and Specialty Shops
+        '5641': 'Shopping',  # Children's and Infants' Wear Stores
+        '5651': 'Shopping',  # Family Clothing Stores
+        '5655': 'Shopping',  # Sports and Riding Apparel Stores
+        '5661': 'Shopping',  # Shoe Stores
+        '5681': 'Shopping',  # Furriers and Fur Shops
+        '5691': 'Shopping',  # Men's and Women's Clothing Stores
+        '5697': 'Shopping',  # Tailors, Seamstresses, Mending, and Alterations
+        '5698': 'Shopping',  # Wig and Toupee Stores
+        '5699': 'Shopping',  # Miscellaneous Apparel and Accessory Shops
+        '5712': 'Shopping',  # Furniture, Home Furnishings, and Equipment Stores
+        '5713': 'Shopping',  # Floor Covering Stores
+        '5714': 'Shopping',  # Drapery, Window Covering, and Upholstery Stores
+        '5718': 'Shopping',  # Fireplace, Fireplace Screens, and Accessories Stores
+        '5719': 'Shopping',  # Miscellaneous Home Furnishing Specialty Stores
+        '5722': 'Shopping',  # Household Appliance Stores
+        '5732': 'Shopping',  # Electronics Stores
+        '5733': 'Shopping',  # Music Stores
+        '5734': 'Shopping',  # Computer Software Stores
+        '5735': 'Shopping',  # Record Stores
+        '5815': 'Shopping',  # Digital Goods Media (Books, Movies, Music)
+        '5921': 'Shopping',  # Package Stores (Beer, Wine, and Liquor)
+        '5931': 'Shopping',  # Used Merchandise and Secondhand Stores
+        '5932': 'Shopping',  # Antique Shops
+        '5933': 'Shopping',  # Pawn Shops
+        '5935': 'Shopping',  # Wrecking and Salvage Yards
+        '5937': 'Shopping',  # Antique Reproduction Stores
+        '5940': 'Shopping',  # Bicycle Shops
+        '5941': 'Shopping',  # Sporting Goods Stores
+        '5942': 'Shopping',  # Book Stores
+        '5943': 'Shopping',  # Stationery, Office, and School Supply Stores
+        '5944': 'Shopping',  # Jewelry, Watch, Clock, and Silverware Stores
+        '5945': 'Shopping',  # Hobby, Toy, and Game Shops
+        '5946': 'Shopping',  # Camera and Photographic Supply Stores
+        '5947': 'Shopping',  # Gift, Card, Novelty, and Souvenir Shops
+        '5948': 'Shopping',  # Luggage and Leather Goods Stores
+        '5949': 'Shopping',  # Sewing, Needlework, Fabric, and Piece Goods Stores
+        '5950': 'Shopping',  # Glassware and Crystal Stores
+        '5960': 'Shopping',  # Direct Marketing - Insurance Services
+        '5970': 'Shopping',  # Artist Supply and Craft Shops
+        '5971': 'Shopping',  # Art Dealers and Galleries
+        '5972': 'Shopping',  # Stamp and Coin Stores
+        '5973': 'Shopping',  # Religious Goods Stores
+        '5977': 'Shopping',  # Cosmetics Stores
+        '5978': 'Shopping',  # Typewriter Stores
+        '5992': 'Shopping',  # Florists
+        '5993': 'Shopping',  # Cigar Stores and Stands
+        '5994': 'Shopping',  # News Dealers and Newsstands
+        '5995': 'Shopping',  # Pet Shops, Pet Food, and Supplies
+        '5996': 'Shopping',  # Swimming Pools
+        '5997': 'Shopping',  # Electric Razor Stores
+        '5998': 'Shopping',  # Tent and Awning Shops
+        '5999': 'Shopping',  # Miscellaneous and Specialty Retail Stores
+
+        # Entertainment (7832, 7841, 7922, 7929, 7991, 7992, 7993, 7994, 7996, 7997, 7998, 7999)
+        '7832': 'Entertainment',  # Motion Picture Theaters
+        '7841': 'Entertainment',  # Video Rental Stores
+        '7922': 'Entertainment',  # Theatrical Producers and Ticket Agencies
+        '7929': 'Entertainment',  # Bands, Orchestras, and Miscellaneous Entertainers
+        '7932': 'Entertainment',  # Billiard and Pool Establishments
+        '7933': 'Entertainment',  # Bowling Alleys
+        '7991': 'Entertainment',  # Tourist Attractions and Exhibits
+        '7992': 'Entertainment',  # Public Golf Courses
+        '7993': 'Entertainment',  # Video Amusement Game Supplies
+        '7994': 'Entertainment',  # Video Game Arcades
+        '7995': 'Entertainment',  # Betting (including Lottery Tickets, Casino Gaming Chips)
+        '7996': 'Entertainment',  # Amusement Parks, Carnivals, Circuses, Fortune Tellers
+        '7997': 'Entertainment',  # Membership Clubs (Sports, Recreation, Athletic)
+        '7998': 'Entertainment',  # Aquariums, Seaquariums, Dolphinariums
+        '7999': 'Entertainment',  # Recreation Services
+        '5816': 'Entertainment',  # Digital Goods - Games
+
+        # Health (5912, 5975, 5976, 8011, 8021, 8031, 8041, 8042, 8043, 8049, 8050, 8062, 8071, 8099)
+        '5912': 'Health',  # Drug Stores and Pharmacies
+        '5975': 'Health',  # Hearing Aids - Sales, Service, and Supply
+        '5976': 'Health',  # Orthopedic Goods - Prosthetic Devices
+        '8011': 'Health',  # Doctors and Physicians
+        '8021': 'Health',  # Dentists and Orthodontists
+        '8031': 'Health',  # Osteopaths
+        '8041': 'Health',  # Chiropractors
+        '8042': 'Health',  # Optometrists and Ophthalmologists
+        '8043': 'Health',  # Opticians, Optical Goods, and Eyeglasses
+        '8049': 'Health',  # Podiatrists and Chiropodists
+        '8050': 'Health',  # Nursing and Personal Care Facilities
+        '8062': 'Health',  # Hospitals
+        '8071': 'Health',  # Medical and Dental Laboratories
+        '8099': 'Health',  # Medical Services and Health Practitioners
+
+        # Education (8211, 8220, 8241, 8244, 8249, 8299, 5192, 5942)
+        '8211': 'Education',  # Elementary and Secondary Schools
+        '8220': 'Education',  # Colleges, Universities, Professional Schools, and Junior Colleges
+        '8241': 'Education',  # Correspondence Schools
+        '8244': 'Education',  # Business and Secretarial Schools
+        '8249': 'Education',  # Vocational and Trade Schools
+        '8299': 'Education',  # Educational Services
+        '5192': 'Education',  # Books, Periodicals, and Newspapers
+
+        # Fees & Charges (6012, 6051, 6540, 9211, 9222, 9223, 9311)
+        '6012': 'Fees & Charges',  # Financial Institutions - Merchandise and Services
+        '6051': 'Fees & Charges',  # Non-Financial Institutions - Foreign Currency, Money Orders
+        '6540': 'Fees & Charges',  # Non-Financial Institutions - Stored Value Card Purchase/Load
+        '9211': 'Fees & Charges',  # Court Costs, Including Alimony and Child Support
+        '9222': 'Fees & Charges',  # Fines
+        '9223': 'Fees & Charges',  # Bail and Bond Payments
+        '9311': 'Fees & Charges',  # Tax Payments
+
+        # Income/Salary (6538, 6540)
+        '6538': 'Income/Salary',  # Pay Anyone - Merchant Funded
+
+        # Transfers/UPI (6536, 6537, 4829)
+        '6536': 'Transfers/UPI',  # MoneySend Intracountry
+        '6537': 'Transfers/UPI',  # MoneySend Intercountry
+        '4829': 'Transfers/UPI',  # Wire Transfers and Money Orders
+
+        # ATM/Cash (6010, 6011, 6050)
+        '6010': 'ATM/Cash',  # Manual Cash Disbursements
+        '6011': 'ATM/Cash',  # Automated Cash Disbursements (ATM)
+        '6050': 'ATM/Cash',  # Quasi Cash
+
+        # Investments (6211, 6300, 6381, 6399)
+        '6211': 'Investments',  # Security Brokers/Dealers
+        '6300': 'Investments',  # Insurance Underwriting, Premiums
+        '6381': 'Investments',  # Insurance - Premiums
+        '6399': 'Investments',  # Insurance - Not Elsewhere Classified
+
+        # Bills (4814, 4899, 4900)
+        '4814': 'Bills',  # Telecommunication Services
+        '4899': 'Bills',  # Cable, Satellite, and Other Pay Television and Radio
+        '4900': 'Bills',  # Utilities - Electric, Gas, Water, Sanitary
+
+        # Rent (6513)
+        '6513': 'Rent',  # Real Estate Agents and Managers - Rentals
+
+        # Personal Care & Services (5977, 7230, 7261, 7273, 7277, 7278, 7296, 7297, 7298)
+        '5977': 'Shopping',  # Cosmetic Stores
+        '7230': 'Shopping',  # Beauty and Barber Shops
+        '7261': 'Shopping',  # Funeral Services and Crematories
+        '7273': 'Shopping',  # Dating and Escort Services
+        '7276': 'Shopping',  # Tax Preparation Services
+        '7277': 'Shopping',  # Counseling Services - Debt, Marriage, Personal
+        '7278': 'Shopping',  # Buying and Shopping Services and Clubs
+        '7296': 'Shopping',  # Clothing Rental
+        '7297': 'Shopping',  # Massage Parlors
+        '7298': 'Shopping',  # Health and Beauty Spas
+
+        # Auto Services (5531, 5532, 5533, 5571, 5511, 7534, 7535, 7538, 7542)
+        '5511': 'Shopping',  # Automobile and Truck Dealers (New and Used)
+        '5521': 'Shopping',  # Automobile and Truck Dealers (Used Only)
+        '5531': 'Shopping',  # Auto and Home Supply Stores
+        '5532': 'Shopping',  # Automotive Tire Stores
+        '5533': 'Shopping',  # Automotive Parts and Accessories Stores
+        '5571': 'Shopping',  # Motorcycle Dealers
+        '7531': 'Shopping',  # Auto Body Repair Shops
+        '7534': 'Shopping',  # Tire Retreading and Repair Shops
+        '7535': 'Shopping',  # Auto Paint Shops
+        '7538': 'Shopping',  # Auto Service Shops (Non-Dealer)
+        '7542': 'Shopping',  # Car Washes
+        '7549': 'Transport',  # Towing Services
     }
 
     def __init__(self):
@@ -135,10 +349,8 @@ class TransactionPreprocessor:
                     parts.append(txn_type)
 
         # Extract merchant category code (MCC)
-        mcc = self._find_mcc(data)
-        if mcc and mcc in self.MCC_MAPPING:
-            category_hint = self.MCC_MAPPING[mcc]
-            parts.append(f"({category_hint})")
+        # Note: MCC is now used by dedicated MCC classifier, not appended to text
+        # to avoid influencing other classifiers
 
         # Extract amount
         amount = self._find_amount(data)
