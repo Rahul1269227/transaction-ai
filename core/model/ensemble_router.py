@@ -266,23 +266,27 @@ class EnsembleRouter:
 
         # Collect votes with weights
         votes = {}
+        total_active_weight = 0.0  # Track total weight of active methods
 
         if rule_result:
             category, conf, expl, subcat = rule_result
             weighted_vote = conf * self.rule_weight
             votes[category] = votes.get(category, 0) + weighted_vote
+            total_active_weight += self.rule_weight
             logger.info(f"  → Rule votes for '{category}': {weighted_vote:.4f}")
 
         if ml_result:
             category, conf, alts = ml_result
             weighted_vote = conf * self.ml_weight
             votes[category] = votes.get(category, 0) + weighted_vote
+            total_active_weight += self.ml_weight
             logger.info(f"  → ML votes for '{category}': {weighted_vote:.4f}")
 
         if llm_result:
             category, conf, reasoning = llm_result
             weighted_vote = conf * self.llm_weight
             votes[category] = votes.get(category, 0) + weighted_vote
+            total_active_weight += self.llm_weight
             logger.info(f"  → LLM votes for '{category}': {weighted_vote:.4f}")
 
         if not votes:
@@ -299,6 +303,15 @@ class EnsembleRouter:
         # Get winner
         winner_category = max(votes.items(), key=lambda x: x[1])[0]
         winner_score = votes[winner_category]
+
+        # Normalize winner score by total active weight
+        # This ensures confidence reflects actual method performance, not just configured weights
+        if total_active_weight > 0:
+            normalized_score = winner_score / total_active_weight
+        else:
+            normalized_score = winner_score
+
+        logger.info(f"Winner score: {winner_score:.4f} (normalized: {normalized_score:.4f}, active_weight: {total_active_weight:.4f})")
 
         # Determine method(s) that voted for winner
         methods_voted = []
@@ -344,7 +357,8 @@ class EnsembleRouter:
             agreement_adjustment = 0.0
 
         # Final confidence with calibration (capped at 0.05-1.0)
-        final_confidence = max(0.05, min(1.0, winner_score + agreement_adjustment))
+        # Use normalized_score instead of winner_score to account for active methods only
+        final_confidence = max(0.05, min(1.0, normalized_score + agreement_adjustment))
 
         # Determine method string
         if agreement_count == num_methods and num_methods > 1:
