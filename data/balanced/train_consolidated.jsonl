@@ -89028,3 +89028,119 @@
 {"text": "UPI - adobe creative cloud", "label": "subscriptions_memberships", "amount": 758.05, "currency": "INR", "category": "subscriptions_memberships"}
 {"text": "bike insurance Health Insurance", "label": "insurance", "amount": 17211.64, "currency": "INR", "category": "insurance"}
 {"text": "spare parts - Payment", "label": "automotive", "amount": 18537.58, "currency": "INR", "category": "automotive"}
+{"text": "type: Online Transfer description: TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -2613, "currency": "INR"}
+{"text": "type: Transfer description: TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -2679, "currency": "INR"}
+{"text": "type: Online Transfer description: FUND TRANSFER", "label": "Transfers/UPI", "amount": -4759, "currency": "USD"}
+{"text": "type: Transfer description: FUND TRANSFER", "label": "Transfers/UPI", "amount": -2752, "currency": "USD"}
+{"text": "type: Online Transfer description: NEFT TRANSFER", "label": "Transfers/UPI", "amount": -2277, "currency": "USD"}
+{"text": "type: Transfer description: NEFT TRANSFER", "label": "Transfers/UPI", "amount": -1984, "currency": "INR"}
+{"text": "type: Online Transfer description: IMPS TRANSFER", "label": "Transfers/UPI", "amount": -4988, "currency": "INR"}
+{"text": "type: Transfer description: IMPS TRANSFER", "label": "Transfers/UPI", "amount": -4475, "currency": "USD"}
+{"text": "type: Online Transfer description: UPI TRANSFER", "label": "Transfers/UPI", "amount": -1037, "currency": "INR"}
+{"text": "type: Transfer description: UPI TRANSFER", "label": "Transfers/UPI", "amount": -2596, "currency": "USD"}
+{"text": "type: Online Transfer description: P2P TRANSFER", "label": "Transfers/UPI", "amount": -3018, "currency": "USD"}
+{"text": "type: Transfer description: P2P TRANSFER", "label": "Transfers/UPI", "amount": -4308, "currency": "USD"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"TRANSFER TO SAVINGS ACCOUNT\"}", "label": "Transfers/UPI", "amount": -4434, "currency": "USD"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"TRANSFER TO SAVINGS ACCOUNT\"}", "label": "Transfers/UPI", "amount": -1068, "currency": "INR"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"FUND TRANSFER\"}", "label": "Transfers/UPI", "amount": -1511, "currency": "USD"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"FUND TRANSFER\"}", "label": "Transfers/UPI", "amount": -1842, "currency": "INR"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"NEFT TRANSFER\"}", "label": "Transfers/UPI", "amount": -3542, "currency": "USD"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"NEFT TRANSFER\"}", "label": "Transfers/UPI", "amount": -3974, "currency": "USD"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"IMPS TRANSFER\"}", "label": "Transfers/UPI", "amount": -4189, "currency": "USD"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"IMPS TRANSFER\"}", "label": "Transfers/UPI", "amount": -3705, "currency": "USD"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"UPI TRANSFER\"}", "label": "Transfers/UPI", "amount": -3025, "currency": "INR"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"UPI TRANSFER\"}", "label": "Transfers/UPI", "amount": -4759, "currency": "USD"}
+{"text": "{\"type\": \"Online Transfer\", \"description\": \"P2P TRANSFER\"}", "label": "Transfers/UPI", "amount": -4560, "currency": "USD"}
+{"text": "{\"type\": \"Transfer\", \"description\": \"P2P TRANSFER\"}", "label": "Transfers/UPI", "amount": -317, "currency": "INR"}
+{"text": "transaction_type Online Transfer TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -1628, "currency": "INR"}
+{"text": "transaction_type Transfer TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -151, "currency": "USD"}
+{"text": "transaction_type Online Transfer FUND TRANSFER", "label": "Transfers/UPI", "amount": -4497, "currency": "USD"}
+{"text": "transaction_type Transfer FUND TRANSFER", "label": "Transfers/UPI", "amount": -4069, "currency": "INR"}
+{"text": "transaction_type Online Transfer NEFT TRANSFER", "label": "Transfers/UPI", "amount": -4164, "currency": "USD"}
+{"text": "transaction_type Transfer NEFT TRANSFER", "label": "Transfers/UPI", "amount": -108, "currency": "USD"}
+{"text": "transaction_type Online Transfer IMPS TRANSFER", "label": "Transfers/UPI", "amount": -4558, "currency": "INR"}
+{"text": "transaction_type Transfer IMPS TRANSFER", "label": "Transfers/UPI", "amount": -3161, "currency": "INR"}
+{"text": "transaction_type Online Transfer UPI TRANSFER", "label": "Transfers/UPI", "amount": -3612, "currency": "INR"}
+{"text": "transaction_type Transfer UPI TRANSFER", "label": "Transfers/UPI", "amount": -647, "currency": "USD"}
+{"text": "transaction_type Online Transfer P2P TRANSFER", "label": "Transfers/UPI", "amount": -2025, "currency": "INR"}
+{"text": "transaction_type Transfer P2P TRANSFER", "label": "Transfers/UPI", "amount": -120, "currency": "USD"}
+{"text": "Online Online Transfer - TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -987, "currency": "INR"}
+{"text": "Online Transfer - TRANSFER TO SAVINGS ACCOUNT", "label": "Transfers/UPI", "amount": -633, "currency": "INR"}
+{"text": "Online Online Transfer - FUND TRANSFER", "label": "Transfers/UPI", "amount": -2038, "currency": "USD"}
+{"text": "Online Transfer - FUND TRANSFER", "label": "Transfers/UPI", "amount": -3437, "currency": "USD"}
+{"text": "Online Online Transfer - NEFT TRANSFER", "label": "Transfers/UPI", "amount": -708, "currency": "INR"}
+{"text": "Online Transfer - NEFT TRANSFER", "label": "Transfers/UPI", "amount": -1978, "currency": "USD"}
+{"text": "Online Online Transfer - IMPS TRANSFER", "label": "Transfers/UPI", "amount": -3614, "currency": "USD"}
+{"text": "Online Transfer - IMPS TRANSFER", "label": "Transfers/UPI", "amount": -3786, "currency": "INR"}
+{"text": "Online Online Transfer - UPI TRANSFER", "label": "Transfers/UPI", "amount": -4989, "currency": "USD"}
+{"text": "Online Transfer - UPI TRANSFER", "label": "Transfers/UPI", "amount": -775, "currency": "USD"}
+{"text": "Online Online Transfer - P2P TRANSFER", "label": "Transfers/UPI", "amount": -2207, "currency": "INR"}
+{"text": "Online Transfer - P2P TRANSFER", "label": "Transfers/UPI", "amount": -185, "currency": "USD"}
+{"text": "type: Transport description: UBER TRIP PAYMENT", "label": "Transport", "amount": -84, "currency": "INR"}
+{"text": "type: Travel description: UBER TRIP PAYMENT", "label": "Transport", "amount": -217, "currency": "INR"}
+{"text": "type: Transport description: OLA CAB RIDE", "label": "Transport", "amount": -76, "currency": "USD"}
+{"text": "type: Travel description: OLA CAB RIDE", "label": "Transport", "amount": -441, "currency": "INR"}
+{"text": "type: Transport description: METRO CARD RECHARGE", "label": "Transport", "amount": -79, "currency": "INR"}
+{"text": "type: Travel description: METRO CARD RECHARGE", "label": "Transport", "amount": -362, "currency": "INR"}
+{"text": "type: Transport description: AUTO RICKSHAW", "label": "Transport", "amount": -57, "currency": "USD"}
+{"text": "type: Travel description: AUTO RICKSHAW", "label": "Transport", "amount": -88, "currency": "INR"}
+{"text": "type: Transport description: TAXI FARE", "label": "Transport", "amount": -293, "currency": "INR"}
+{"text": "type: Travel description: TAXI FARE", "label": "Transport", "amount": -491, "currency": "INR"}
+{"text": "type: Transport description: BUS TICKET", "label": "Transport", "amount": -92, "currency": "INR"}
+{"text": "type: Travel description: BUS TICKET", "label": "Transport", "amount": -189, "currency": "INR"}
+{"text": "{\"type\": \"Transport\", \"description\": \"UBER TRIP PAYMENT\"}", "label": "Transport", "amount": -71, "currency": "INR"}
+{"text": "{\"type\": \"Travel\", \"description\": \"UBER TRIP PAYMENT\"}", "label": "Transport", "amount": -211, "currency": "USD"}
+{"text": "{\"type\": \"Transport\", \"description\": \"OLA CAB RIDE\"}", "label": "Transport", "amount": -230, "currency": "USD"}
+{"text": "{\"type\": \"Travel\", \"description\": \"OLA CAB RIDE\"}", "label": "Transport", "amount": -325, "currency": "USD"}
+{"text": "{\"type\": \"Transport\", \"description\": \"METRO CARD RECHARGE\"}", "label": "Transport", "amount": -51, "currency": "INR"}
+{"text": "{\"type\": \"Travel\", \"description\": \"METRO CARD RECHARGE\"}", "label": "Transport", "amount": -328, "currency": "INR"}
+{"text": "{\"type\": \"Transport\", \"description\": \"AUTO RICKSHAW\"}", "label": "Transport", "amount": -102, "currency": "USD"}
+{"text": "{\"type\": \"Travel\", \"description\": \"AUTO RICKSHAW\"}", "label": "Transport", "amount": -124, "currency": "INR"}
+{"text": "{\"type\": \"Transport\", \"description\": \"TAXI FARE\"}", "label": "Transport", "amount": -366, "currency": "USD"}
+{"text": "{\"type\": \"Travel\", \"description\": \"TAXI FARE\"}", "label": "Transport", "amount": -384, "currency": "INR"}
+{"text": "{\"type\": \"Transport\", \"description\": \"BUS TICKET\"}", "label": "Transport", "amount": -422, "currency": "INR"}
+{"text": "{\"type\": \"Travel\", \"description\": \"BUS TICKET\"}", "label": "Transport", "amount": -59, "currency": "USD"}
+{"text": "transaction_type Transport UBER TRIP PAYMENT", "label": "Transport", "amount": -76, "currency": "USD"}
+{"text": "transaction_type Travel UBER TRIP PAYMENT", "label": "Transport", "amount": -293, "currency": "INR"}
+{"text": "transaction_type Transport OLA CAB RIDE", "label": "Transport", "amount": -258, "currency": "INR"}
+{"text": "transaction_type Travel OLA CAB RIDE", "label": "Transport", "amount": -398, "currency": "USD"}
+{"text": "transaction_type Transport METRO CARD RECHARGE", "label": "Transport", "amount": -390, "currency": "INR"}
+{"text": "transaction_type Travel METRO CARD RECHARGE", "label": "Transport", "amount": -433, "currency": "USD"}
+{"text": "transaction_type Transport AUTO RICKSHAW", "label": "Transport", "amount": -154, "currency": "INR"}
+{"text": "transaction_type Travel AUTO RICKSHAW", "label": "Transport", "amount": -379, "currency": "USD"}
+{"text": "transaction_type Transport TAXI FARE", "label": "Transport", "amount": -495, "currency": "INR"}
+{"text": "transaction_type Travel TAXI FARE", "label": "Transport", "amount": -141, "currency": "USD"}
+{"text": "transaction_type Transport BUS TICKET", "label": "Transport", "amount": -304, "currency": "INR"}
+{"text": "transaction_type Travel BUS TICKET", "label": "Transport", "amount": -424, "currency": "USD"}
+{"text": "Online Transport - UBER TRIP PAYMENT", "label": "Transport", "amount": -373, "currency": "INR"}
+{"text": "Online Travel - UBER TRIP PAYMENT", "label": "Transport", "amount": -148, "currency": "INR"}
+{"text": "Online Transport - OLA CAB RIDE", "label": "Transport", "amount": -364, "currency": "INR"}
+{"text": "Online Travel - OLA CAB RIDE", "label": "Transport", "amount": -470, "currency": "INR"}
+{"text": "Online Transport - METRO CARD RECHARGE", "label": "Transport", "amount": -56, "currency": "INR"}
+{"text": "Online Travel - METRO CARD RECHARGE", "label": "Transport", "amount": -338, "currency": "USD"}
+{"text": "Online Transport - AUTO RICKSHAW", "label": "Transport", "amount": -242, "currency": "INR"}
+{"text": "Online Travel - AUTO RICKSHAW", "label": "Transport", "amount": -466, "currency": "USD"}
+{"text": "Online Transport - TAXI FARE", "label": "Transport", "amount": -176, "currency": "INR"}
+{"text": "Online Travel - TAXI FARE", "label": "Transport", "amount": -363, "currency": "USD"}
+{"text": "Online Transport - BUS TICKET", "label": "Transport", "amount": -305, "currency": "INR"}
+{"text": "Online Travel - BUS TICKET", "label": "Transport", "amount": -364, "currency": "INR"}
+{"text": "type: Refund description: MERCHANDISE", "label": "Income/Salary", "amount": 441, "currency": "USD"}
+{"text": "type: Refund description: PURCHASE RETURN", "label": "Income/Salary", "amount": 76, "currency": "USD"}
+{"text": "type: Refund description: PRODUCT RETURN", "label": "Income/Salary", "amount": 246, "currency": "USD"}
+{"text": "type: Refund description: STORE XYZ", "label": "Income/Salary", "amount": 83, "currency": "INR"}
+{"text": "type: Refund description: RETURN CREDIT", "label": "Income/Salary", "amount": 86, "currency": "INR"}
+{"text": "{\"type\": \"Refund\", \"description\": \"MERCHANDISE\"}", "label": "Income/Salary", "amount": 204, "currency": "INR"}
+{"text": "{\"type\": \"Refund\", \"description\": \"PURCHASE RETURN\"}", "label": "Income/Salary", "amount": 168, "currency": "INR"}
+{"text": "{\"type\": \"Refund\", \"description\": \"PRODUCT RETURN\"}", "label": "Income/Salary", "amount": 474, "currency": "USD"}
+{"text": "{\"type\": \"Refund\", \"description\": \"STORE XYZ\"}", "label": "Income/Salary", "amount": 211, "currency": "INR"}
+{"text": "{\"type\": \"Refund\", \"description\": \"RETURN CREDIT\"}", "label": "Income/Salary", "amount": 436, "currency": "INR"}
+{"text": "RETURN MERCHANDISE", "label": "Income/Salary", "amount": 61, "currency": "USD"}
+{"text": "RETURN PURCHASE RETURN", "label": "Income/Salary", "amount": 267, "currency": "USD"}
+{"text": "RETURN PRODUCT RETURN", "label": "Income/Salary", "amount": 448, "currency": "USD"}
+{"text": "RETURN STORE XYZ", "label": "Income/Salary", "amount": 167, "currency": "INR"}
+{"text": "RETURN RETURN CREDIT", "label": "Income/Salary", "amount": 108, "currency": "USD"}
+{"text": "REFUND - MERCHANDISE", "label": "Income/Salary", "amount": 312, "currency": "INR"}
+{"text": "REFUND - PURCHASE RETURN", "label": "Income/Salary", "amount": 160, "currency": "USD"}
+{"text": "REFUND - PRODUCT RETURN", "label": "Income/Salary", "amount": 248, "currency": "INR"}
+{"text": "REFUND - STORE XYZ", "label": "Income/Salary", "amount": 74, "currency": "INR"}
+{"text": "REFUND - RETURN CREDIT", "label": "Income/Salary", "amount": 289, "currency": "INR"}
