@@ -89,6 +89,8 @@ services:
       context: ..
       dockerfile: infra/Dockerfile
     container_name: txn-api
+    env_file:
+      - ../.env
     ports:
       - "8000:8000"
     environment:
@@ -96,10 +98,13 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - TAXONOMY_PATH=/app/data/taxonomy.yaml
       - GAZETTEER_PATH=/app/data/gazetteer/merchant_aliases.csv
-      - MODEL_PATH=/app/models/transaction_classifier_balanced_final
+      - MODEL_PATH=/app/${MODEL_PATH:-models/transaction_classifier_balanced_final}
       - LLM_URL=http://llm-service:11434
-      - LLM_MODEL=llama3.1:8b
-      - USE_ENSEMBLE=true
+      - LLM_MODEL=${LLM_MODEL:-llama3.1:8b}
+      - USE_ENSEMBLE=${USE_ENSEMBLE:-true}
+      - RULE_WEIGHT=${RULE_WEIGHT:-0.3}
+      - ML_WEIGHT=${ML_WEIGHT:-0.4}
+      - LLM_WEIGHT=${LLM_WEIGHT:-0.3}
     volumes:
       - ../data:/app/data
       - ../models:/app/models

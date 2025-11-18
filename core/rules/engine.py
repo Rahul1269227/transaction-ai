@@ -152,6 +152,22 @@ class RuleCategorizer:
                     explanations=["fee_keyword_small_amount"]
                 )
 
+        # Rule 6: Fraud & Security - Suspicious International Transactions
+        # Pattern: "INTL TRX" indicates international transaction that may be fraudulent
+        fraud_patterns = [
+            'intl trx', 'international transaction', 'intl txn',
+            'unauthorized', 'fraud alert', 'suspicious activity',
+            'disputed charge', 'chargeback'
+        ]
+        if any(pattern in text_lower for pattern in fraud_patterns):
+            return RuleMatch(
+                category="Fraud & Security",
+                subcategory="Suspicious International",
+                confidence=0.95,
+                matched_rules=["deterministic_fraud"],
+                explanations=["fraud_or_security_keyword"]
+            )
+
         # Strategy 1: Merchant-based categorization (highest priority after deterministic rules)
         if merchant:
             merchant_match = self._match_merchant(merchant)
