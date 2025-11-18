@@ -95,18 +95,12 @@ data/labeled/*.yaml
 !data/taxonomy.yaml
 !data/gazetteer/
 !data/gazetteer/*.csv
-!data/raw/
-!data/raw/*.csv
-!data/raw/*.xlsx
-!data/raw/*.json
 !data/few_shot_examples.jsonl
 !data/**/.gitkeep
 
-# Ignore very large raw data files (>50MB)
-data/raw/transactions_data.csv
-data/raw/train_fraud_labels.json
-data/raw/bank_transactions.csv
-data/raw/data/
+# Ignore all raw data files (keep locally, not in git)
+# These are Kaggle downloads and can be regenerated
+data/raw/
 
 # Temporary data files
 data/feedback/*.jsonl
