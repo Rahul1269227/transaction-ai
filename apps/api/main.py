@@ -1001,9 +1001,39 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
     try:
         for idx, txn_text in enumerate(transactions):
             try:
+                # Validate that transaction text is a string
+                if not isinstance(txn_text, str):
+                    error_msg = f"Transaction at index {idx} is not a string: {type(txn_text).__name__}. Value: {txn_text}"
+                    logger.error(error_msg)
+                    results.append({
+                        "transaction": str(txn_text) if txn_text else "invalid",
+                        "category": "Unknown",
+                        "subcategory": None,
+                        "confidence": 0.0,
+                        "method": "error",
+                        "status": "error",
+                        "error_message": error_msg
+                    })
+                    continue
+                
+                txn_text_str = str(txn_text).strip()
+                if not txn_text_str:
+                    error_msg = "Transaction text cannot be empty"
+                    logger.error(f"Empty transaction at index {idx}")
+                    results.append({
+                        "transaction": "",
+                        "category": "Unknown",
+                        "subcategory": None,
+                        "confidence": 0.0,
+                        "method": "error",
+                        "status": "error",
+                        "error_message": error_msg
+                    })
+                    continue
+                
                 # Categorize each transaction
                 result = router.categorize(
-                    text=txn_text,
+                    text=txn_text_str,
                     amount=None,
                     date=None,
                     currency="INR",
@@ -1011,7 +1041,7 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
 
                 # Build successful result
                 results.append({
-                    "transaction": txn_text,
+                    "transaction": txn_text_str,
                     "category": result.category,
                     "subcategory": result.subcategory,
                     "confidence": float(result.confidence),
@@ -1024,9 +1054,9 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
                     logger.info(f"Processed {idx + 1}/{len(transactions)} transactions")
 
             except Exception as exc:
-                logger.warning(f"Error categorizing transaction '{txn_text[:50]}...': {exc}")
+                logger.warning(f"Error categorizing transaction '{str(txn_text)[:50]}...': {exc}")
                 results.append({
-                    "transaction": txn_text,
+                    "transaction": str(txn_text) if txn_text else "invalid",
                     "category": "Unknown",
                     "subcategory": None,
                     "confidence": 0.0,
