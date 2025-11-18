@@ -532,6 +532,30 @@ categories:
       - "(?i).*outstanding.*payment.*"
       - "(?i).*due.*payment.*"
 
+  - name: "Fraud & Security"
+    id: "fraud_security"
+    description: "Suspicious transactions, fraud alerts, security concerns"
+    subcategories:
+      - "Suspicious International"
+      - "Potential Fraud"
+      - "Security Alert"
+      - "Disputed Transaction"
+    keywords:
+      - "fraud"
+      - "suspicious"
+      - "disputed"
+      - "unauthorized"
+      - "chargeback"
+      - "security alert"
+      - "intl trx"
+      - "international transaction"
+    patterns:
+      - "(?i)\\bintl\\s+trx\\b"
+      - "(?i)international\\s+transaction"
+      - "(?i)fraud"
+      - "(?i)suspicious"
+      - "(?i)disputed"
+
   - name: "Other"
     id: "other"
     description: "Miscellaneous transactions not fitting other categories"
