@@ -72,6 +72,7 @@ export default function HealthDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {Object.entries(components).map(([name, status]) => {
           const isHealthy = status === 'healthy'
+          const statusText = String(status)
           return (
             <div
               key={name}
@@ -94,7 +95,7 @@ export default function HealthDashboard() {
               <p className={`text-xs font-medium ${
                 isHealthy ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
               }`}>
-                {status}
+                {statusText}
               </p>
             </div>
           )
