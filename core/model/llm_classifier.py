@@ -63,6 +63,9 @@ class LLMClassifier:
         self.categories = []
         self._service_unavailable = False  # Track if service is down
         self._error_logged = False  # Only log error once
+        
+        # Initialize response cache (dict-based cache for synchronous methods)
+        self._response_cache = {}
 
         # Create LRU cache for LLM responses (prevents memory leaks, max 1000 entries)
         # This replaces the unbounded dict cache to prevent memory leaks in long-running instances
