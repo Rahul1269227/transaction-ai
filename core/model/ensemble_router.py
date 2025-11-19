@@ -44,6 +44,7 @@ class CategorizationResult:
     requires_review: bool = False
     merchant_resolved: Optional[str] = None
     ensemble_votes: Optional[Dict[str, Any]] = None  # Individual method results
+    normalized_data: Optional[Dict[str, Any]] = None  # Normalized transaction data (avoids duplicate work)
 
 
 class EnsembleRouter:
@@ -444,28 +445,28 @@ class EnsembleRouter:
             weighted_vote = conf * self.mcc_weight
             votes[category] = votes.get(category, 0) + weighted_vote
             total_active_weight += self.mcc_weight
-            logger.info(f"  → MCC votes for '{category}' (code: {mcc_code}): {weighted_vote:.4f}")
+            logger.debug(f"  → MCC votes for '{category}' (code: {mcc_code}): {weighted_vote:.4f}")
 
         if rule_result:
             category, conf, expl, subcat = rule_result
             weighted_vote = conf * self.rule_weight
             votes[category] = votes.get(category, 0) + weighted_vote
             total_active_weight += self.rule_weight
-            logger.info(f"  → Rule votes for '{category}': {weighted_vote:.4f}")
+            logger.debug(f"  → Rule votes for '{category}': {weighted_vote:.4f}")
 
         if ml_result:
             category, conf, alts = ml_result
             weighted_vote = conf * self.ml_weight
             votes[category] = votes.get(category, 0) + weighted_vote
             total_active_weight += self.ml_weight
-            logger.info(f"  → ML votes for '{category}': {weighted_vote:.4f}")
+            logger.debug(f"  → ML votes for '{category}': {weighted_vote:.4f}")
 
         if llm_result:
             category, conf, reasoning = llm_result
             weighted_vote = conf * self.llm_weight
             votes[category] = votes.get(category, 0) + weighted_vote
             total_active_weight += self.llm_weight
-            logger.info(f"  → LLM votes for '{category}': {weighted_vote:.4f}")
+            logger.debug(f"  → LLM votes for '{category}': {weighted_vote:.4f}")
 
         if not votes:
             # No methods available
@@ -475,7 +476,8 @@ class EnsembleRouter:
                 confidence=0.0,
                 method="none",
                 explanations=["no_methods_available"],
-                requires_review=True
+                requires_review=True,
+                normalized_data=None
             )
 
         # LLM TIEBREAKER: When rule and ML disagree, ALWAYS trust LLM if available
@@ -553,7 +555,7 @@ class EnsembleRouter:
         else:
             # Only one method available - no penalty, this is the best we have
             agreement_adjustment = 0.0
-            logger.info(f"Single method available ({methods_voted[0] if methods_voted else 'unknown'}): no adjustment")
+            logger.debug(f"Single method available ({methods_voted[0] if methods_voted else 'unknown'}): no adjustment")
 
         # Final confidence with calibration (capped at 0.05-1.0)
         # Use normalized_score instead of winner_score to account for active methods only
@@ -621,13 +623,13 @@ class EnsembleRouter:
         # Get category-specific review threshold
         category_review_threshold = self._get_category_threshold(winner_category, 'review')
 
-        # Log final decision
-        logger.info(f"All votes: {votes}")
-        logger.info(f"Winner: '{winner_category}' with score {winner_score:.4f}")
-        logger.info(f"Agreement: {agreement_count}/{num_methods} methods agreed")
-        logger.info(f"Final confidence: {final_confidence:.3f} (method: {method})")
-        logger.info(f"Category-specific review threshold: {category_review_threshold:.3f}")
-        logger.info("=" * 35)
+        # Log final decision - moved to DEBUG to reduce log bloat at scale
+        logger.debug(f"All votes: {votes}")
+        logger.debug(f"Winner: '{winner_category}' with score {winner_score:.4f}")
+        logger.debug(f"Agreement: {agreement_count}/{num_methods} methods agreed")
+        logger.info(f"Categorized: '{winner_category}' (confidence: {final_confidence:.3f}, method: {method})")  # Concise INFO log
+        logger.debug(f"Category-specific review threshold: {category_review_threshold:.3f}")
+        logger.debug("=" * 35)
 
         return CategorizationResult(
             category=winner_category,
@@ -637,7 +639,8 @@ class EnsembleRouter:
             explanations=explanations,
             alternatives=alternatives,
             requires_review=final_confidence < category_review_threshold,
-            ensemble_votes=ensemble_votes
+            ensemble_votes=ensemble_votes,
+            normalized_data=None  # Will be set by categorize() method
         )
 
     def categorize(
@@ -727,7 +730,8 @@ class EnsembleRouter:
                     "weighted_votes": {merchant_category: boosted_confidence},
                     "agreement_count": 1,
                     "total_methods": 1
-                }
+                },
+                normalized_data=normalized
             )
         elif is_refund:
             logger.info(f"REFUND/RETURN detected - skipping merchant early-exit, will use ensemble voting")
@@ -764,7 +768,8 @@ class EnsembleRouter:
                         "weighted_votes": {rule_result[0]: rule_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
-                    }
+                    },
+                    normalized_data=normalized
                 )
 
         # Try MCC second - if high confidence MCC match, use it directly
@@ -790,7 +795,8 @@ class EnsembleRouter:
                         "weighted_votes": {mcc_result[0]: mcc_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
-                    }
+                    },
+                    normalized_data=normalized
                 )
 
         if self.enable_parallel and self.executor:
@@ -944,6 +950,7 @@ class EnsembleRouter:
         # Step 4: Ensemble voting
         result = self._ensemble_vote(mcc_result, rule_result, ml_result, llm_result)
         result.merchant_resolved = resolved_merchant
+        result.normalized_data = normalized  # Attach normalized data to avoid duplicate work in API
 
         return result
 

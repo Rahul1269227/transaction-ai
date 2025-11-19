@@ -8,6 +8,7 @@ import json
 import logging
 import os
 from typing import List, Dict, Optional, Tuple, Any
+from functools import lru_cache
 from pathlib import Path
 import requests
 from datetime import datetime
@@ -63,8 +64,14 @@ class LLMClassifier:
         self._service_unavailable = False  # Track if service is down
         self._error_logged = False  # Only log error once
 
-        # In-memory cache for LLM responses
-        self._response_cache: Dict[str, Tuple[str, float, str]] = {}
+        # Create LRU cache for LLM responses (prevents memory leaks, max 1000 entries)
+        # This replaces the unbounded dict cache to prevent memory leaks in long-running instances
+        @lru_cache(maxsize=1000)
+        def _cached_categorize(text: str, amount_str: str) -> Tuple[str, float, str]:
+            """LRU-cached version of _call_llm"""
+            return self._call_llm_internal(text, float(amount_str) if amount_str != "None" else None)
+
+        self._cached_categorize = _cached_categorize
         self._cache_hits = 0
         self._cache_misses = 0
 
