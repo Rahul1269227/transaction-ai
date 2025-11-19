@@ -711,7 +711,12 @@ class EnsembleRouter:
         # FIX #1: MERCHANT-FIRST STRATEGY - Merchant matches should dominate
         # Use configured threshold for fuzzy matches (already high-quality from gazetteer)
         # Boost confidence when merchant is clearly identified
-        if merchant_confidence >= MERCHANT_CONFIDENCE_THRESHOLD:
+        #
+        # IMPORTANT: Check for REFUND/RETURN keywords FIRST - these override merchant matches
+        text_lower = text.lower()
+        is_refund = any(keyword in text_lower for keyword in ['refund', 'return', 'reversal', 'chargeback'])
+
+        if merchant_confidence >= MERCHANT_CONFIDENCE_THRESHOLD and not is_refund:
             # Boost confidence for merchant matches (they're highly reliable)
             boosted_confidence = min(0.95, merchant_confidence + MERCHANT_CONFIDENCE_BOOST)
             logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%} -> {boosted_confidence:.2%})")
@@ -733,6 +738,8 @@ class EnsembleRouter:
                     "total_methods": 1
                 }
             )
+        elif is_refund:
+            logger.info(f"REFUND/RETURN detected - skipping merchant early-exit, will use ensemble voting")
 
         # Step 3: Run categorizers (with fast mode optimization)
         mcc_result = None
