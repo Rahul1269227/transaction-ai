@@ -208,6 +208,9 @@ class EmbeddingClassifier:
                 # Use 2^(max_depth-1) as a good default to avoid warnings
                 num_leaves = min(2**(max_depth - 1), 4095)  # Cap at 4095 for performance
 
+            import os
+            n_jobs = kwargs.get('n_jobs', -1)  # -1 = use all cores
+
             self.classifier = lgb.LGBMClassifier(
                 n_estimators=kwargs.get('n_estimators', 200),
                 learning_rate=kwargs.get('learning_rate', 0.05),
@@ -220,6 +223,7 @@ class EmbeddingClassifier:
                 reg_lambda=kwargs.get('reg_lambda', 0.1),
                 class_weight=weight_param,
                 random_state=42,
+                n_jobs=n_jobs,  # Use all CPU cores for parallel training
                 verbose=1  # Show progress (1 = show progress every iteration)
             )
         elif XGBOOST_AVAILABLE:
