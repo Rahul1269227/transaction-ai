@@ -220,7 +220,7 @@ class EmbeddingClassifier:
                 reg_lambda=kwargs.get('reg_lambda', 0.1),
                 class_weight=weight_param,
                 random_state=42,
-                verbose=-1
+                verbose=1  # Show progress (1 = show progress every iteration)
             )
         elif XGBOOST_AVAILABLE:
             import xgboost as xgb

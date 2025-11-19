@@ -5,6 +5,14 @@ Automatically merges all data sources (synthetic, Kaggle, balanced) and trains t
 Just run: python3 scripts/train.py
 """
 
+import os
+import warnings
+
+# Suppress warnings
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', message='.*OpenSSL.*')
+
 import subprocess
 import sys
 import json
