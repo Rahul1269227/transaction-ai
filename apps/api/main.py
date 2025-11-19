@@ -9,6 +9,8 @@ import logging
 import os
 import sys
 import time
+import subprocess
+import yaml
 from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -279,6 +281,71 @@ def record_metrics(
         if total:
             ENSEMBLE_AGREEMENT.set(agree / total)
 
+
+# Auto-learning helpers -----------------------------------------------------
+def load_training_config():
+    """Load training configuration"""
+    config_path = BASE_DIR / "config" / "training_config.yaml"
+    if config_path.exists():
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    return {}
+
+def count_corrections() -> int:
+    """Count total corrections in corrections.jsonl"""
+    try:
+        corrections_file = BASE_DIR / "data" / "corrections" / "corrections.jsonl"
+        if not corrections_file.exists():
+            return 0
+
+        count = 0
+        with open(corrections_file, 'r') as f:
+            for line in f:
+                if line.strip():
+                    count += 1
+        return count
+    except Exception as e:
+        logger.warning(f"Failed to count corrections: {e}")
+        return 0
+
+def trigger_auto_retraining():
+    """Trigger automatic retraining in background"""
+    try:
+        logger.info("Triggering automatic retraining...")
+        # Run training script in background
+        subprocess.Popen(
+            ["python3", "scripts/train.py"],
+            cwd=str(BASE_DIR),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            start_new_session=True  # Detach from parent process
+        )
+        logger.info("Auto-retraining triggered successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to trigger auto-retraining: {e}")
+        return False
+
+def reload_router_model():
+    """Reload the router with updated model (hot swap)"""
+    global router
+    try:
+        logger.info("Reloading router with updated model...")
+        old_router = router
+
+        # Initialize new router
+        model_path = os.getenv("MODEL_PATH", "models/transaction_classifier_balanced_final")
+        new_router = EnsembleRouter(model_path=model_path, enable_llm=True)
+
+        # Atomic swap
+        router = new_router
+        logger.info("Router reloaded successfully")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to reload router: {e}")
+        # Restore old router if new one failed
+        router = old_router if 'old_router' in locals() else router
+        return False
 
 # Database helpers ----------------------------------------------------------
 def init_database() -> None:
@@ -811,6 +878,16 @@ async def submit_feedback(feedback: FeedbackInput):
 
         logger.info(f"Stored correction: {feedback.predicted_category} -> {feedback.correct_category} (was_incorrect={correction_entry['was_incorrect']})")
 
+        # Auto-retraining: Check if we've reached the threshold
+        config = load_training_config()
+        min_corrections = config.get('corrections', {}).get('min_for_retraining', 50)
+        correction_count = count_corrections()
+
+        if correction_count >= min_corrections and correction_count % min_corrections == 0:
+            # Trigger retraining at exact multiples of threshold
+            logger.info(f"Reached {correction_count} corrections (threshold: {min_corrections}), triggering auto-retraining...")
+            trigger_auto_retraining()
+
         # Also store the transaction with the correct category from user feedback
         # This ensures low-confidence transactions are persisted after user review
         if SessionLocal is not None:
@@ -980,6 +1057,37 @@ async def trigger_feedback_learning(background_tasks: BackgroundTasks):
         raise HTTPException(
             status_code=500,
             detail=f"Failed to start feedback learning: {exc}"
+        )
+
+
+@app.post("/reload-model", tags=["Training"])
+async def reload_model():
+    """
+    Reload the router with updated model (hot swap)
+
+    This endpoint allows you to reload the model without restarting the API server.
+    Useful after training completes to immediately use the new model.
+    """
+    try:
+        success = reload_router_model()
+
+        if success:
+            return {
+                "status": "success",
+                "message": "Model reloaded successfully",
+                "model_path": os.getenv("MODEL_PATH", "models/transaction_classifier_balanced_final")
+            }
+        else:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to reload model - check logs for details"
+            )
+
+    except Exception as exc:
+        logger.error(f"Error reloading model: {exc}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Model reload failed: {exc}"
         )
 
 

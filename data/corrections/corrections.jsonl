@@ -1,2 +1,4 @@
 {"text": "IMPS/345121234/REFUND/FLIPKART", "correct_category": "transfers_upi", "predicted_category": "Shopping", "was_incorrect": true}
 {"text": "FB.*AD CHARGES*", "correct_category": "professional_services", "predicted_category": "Taxes & Government", "was_incorrect": true}
+{"transaction_text": "FB AD CHARGES", "predicted_category": "Transport", "correct_category": "Professional Services", "predicted_subcategory": null, "correct_subcategory": null, "timestamp": "2025-11-19T05:39:41", "was_incorrect": true}
+{"transaction_text": "Acme Corp Services", "predicted_category": "Transport", "correct_category": "Professional Services", "predicted_subcategory": null, "correct_subcategory": null, "timestamp": "2025-11-19T05:39:41", "was_incorrect": true}
