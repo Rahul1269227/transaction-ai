@@ -75,11 +75,11 @@ class EnsembleRouter:
     CATEGORY_THRESHOLDS = {
         # Critical financial categories - higher thresholds
         "Investments": {"auto_accept": 0.90, "review": 0.70},
-        "Income/Salary": {"auto_accept": 0.90, "review": 0.70},
+        "income_salary": {"auto_accept": 0.90, "review": 0.70},
         "Rent": {"auto_accept": 0.90, "review": 0.70},
         "Fees & Charges": {"auto_accept": 0.90, "review": 0.70},
         "Bills": {"auto_accept": 0.88, "review": 0.65},
-        "Transfers/UPI": {"auto_accept": 0.88, "review": 0.65},
+        "transfers_upi": {"auto_accept": 0.88, "review": 0.65},
         "Fraud & Security": {"auto_accept": 0.95, "review": 0.80},  # Highest threshold
 
         # Medium-importance categories - standard thresholds
