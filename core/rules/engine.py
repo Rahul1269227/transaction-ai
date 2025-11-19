@@ -106,6 +106,26 @@ class RuleCategorizer:
         # DETERMINISTIC RULES (95%+ confidence) - Check FIRST before taxonomy matching
         # These rules are high-precision and should override other methods
 
+        # Rule 0: REFUND/RETURN transactions (HIGHEST PRIORITY - overrides merchant matching)
+        if any(kw in text_upper for kw in ['REFUND', 'REVERSAL', 'CHARGEBACK', 'RETURN MERCHANDISE', 'MERCHANDISE RETURN']):
+            # Check if it's a bank transfer refund (IMPS, UPI, NEFT)
+            if any(kw in text_upper for kw in ['IMPS', 'UPI', 'NEFT', 'RTGS']):
+                return RuleMatch(
+                    category="Transfers/UPI",
+                    subcategory="Refund",
+                    confidence=RULE_HIGH_CONFIDENCE,
+                    matched_rules=["deterministic_transfer_refund"],
+                    explanations=["refund_keyword+transfer_channel"]
+                )
+            # Otherwise, it's an income/refund
+            return RuleMatch(
+                category="Income/Salary",
+                subcategory="Refunds",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_refund"],
+                explanations=["refund_keyword"]
+            )
+
         # Rule 1: ATM/Cash withdrawals
         if channel == 'ATM' or any(kw in text_upper for kw in ['ATM CASH', 'ATM WDL', 'ATM WITHDRAWAL', 'CASH WITHDRAWAL']):
             return RuleMatch(
