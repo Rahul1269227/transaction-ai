@@ -3,6 +3,16 @@ Model Training Script
 Train ML classifier on transaction data with enhanced features and data augmentation
 """
 
+import os
+import warnings
+
+# Suppress warnings BEFORE any other imports
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', message='.*OpenSSL.*')
+warnings.filterwarnings('ignore', message='.*urllib3.*')
+
 import json
 import argparse
 import logging
