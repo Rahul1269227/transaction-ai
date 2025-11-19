@@ -4,6 +4,40 @@ import { useState } from 'react'
 import { Send, CheckCircle } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
 
+// Available categories from taxonomy
+const CATEGORIES = [
+  'ATM/Cash',
+  'Automotive',
+  'Bills',
+  'Charity & Donations',
+  'Education',
+  'Electronics & Technology',
+  'Entertainment',
+  'Fees & Charges',
+  'Food & Dining',
+  'Fraud & Security',
+  'Fuel',
+  'Gifts & Special Occasions',
+  'Groceries',
+  'Health',
+  'Home Improvement',
+  'Income/Salary',
+  'Insurance',
+  'Investments',
+  'Kids & Family',
+  'Other',
+  'Personal Care',
+  'Pets',
+  'Professional Services',
+  'Rent',
+  'Shopping',
+  'Subscriptions & Memberships',
+  'Taxes & Government',
+  'Transfers/UPI',
+  'Transport',
+  'Travel',
+]
+
 export default function FeedbackForm() {
   const [formData, setFormData] = useState({
     transaction_text: '',
@@ -90,28 +124,38 @@ export default function FeedbackForm() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Predicted Category
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.predicted_category}
                 onChange={(e) => setFormData({ ...formData, predicted_category: e.target.value })}
                 required
-                placeholder="e.g., Food & Dining"
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-900 dark:text-white bg-white dark:bg-slate-700"
-              />
+              >
+                <option value="">Select category...</option>
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
                 Correct Category
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.correct_category}
                 onChange={(e) => setFormData({ ...formData, correct_category: e.target.value })}
                 required
-                placeholder="e.g., Shopping"
                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2 text-slate-900 dark:text-white bg-white dark:bg-slate-700"
-              />
+              >
+                <option value="">Select category...</option>
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

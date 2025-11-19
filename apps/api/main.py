@@ -712,16 +712,17 @@ async def categorize_transaction(transaction: TransactionInput):
 
     # Preprocess transaction text to extract key information from JSON or clean plain text
     from core.preprocessor import preprocessor
-    processed_text, extracted_amount, extracted_date, extracted_currency, extracted_merchant = preprocessor.preprocess_with_fields(transaction.text)
+    processed_text, extracted_amount, extracted_date, extracted_currency, extracted_merchant, extracted_mcc = preprocessor.preprocess_with_fields(transaction.text)
 
     # Use extracted fields from JSON if available, otherwise fall back to transaction fields
     final_amount = transaction.amount if transaction.amount is not None else extracted_amount
     final_date = transaction.date if transaction.date else extracted_date
     final_currency = transaction.currency if transaction.currency != "INR" else extracted_currency
     final_merchant = extracted_merchant  # Always prefer extracted merchant from JSON
+    final_mcc = extracted_mcc if extracted_mcc else transaction.mcc  # Prefer extracted MCC from JSON
 
     logger.debug(f"Preprocessed: {transaction.text[:100]}... -> {processed_text}")
-    logger.debug(f"Extracted fields: amount={final_amount}, date={final_date}, currency={final_currency}, merchant={final_merchant}")
+    logger.debug(f"Extracted fields: amount={final_amount}, date={final_date}, currency={final_currency}, merchant={final_merchant}, mcc={final_mcc}")
 
     cache_key = build_cache_key(transaction)
     cached_output = fetch_cached_output(cache_key)
@@ -739,7 +740,7 @@ async def categorize_transaction(transaction: TransactionInput):
             date=final_date,
             currency=final_currency,
             merchant=final_merchant,
-            mcc=transaction.mcc,
+            mcc=final_mcc,
         )
 
         # Use normalized data from the categorization result (no duplicate work!)

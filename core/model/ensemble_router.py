@@ -355,48 +355,88 @@ class EnsembleRouter:
     def _normalize_category_name(self, category: str) -> str:
         """
         Normalize category names to match taxonomy
-        Maps legacy/variant category names to standard taxonomy categories
-        
+        Maps legacy/variant category names and IDs to standard taxonomy display names
+
         Args:
-            category: Category name from any method
-            
+            category: Category name or ID from any method
+
         Returns:
-            Normalized category name matching taxonomy
+            Normalized category name matching taxonomy display names
         """
         if not category:
             return category
-        
+
         # First, try to use taxonomy from rule categorizer if available
         if self.rule_categorizer and hasattr(self.rule_categorizer, 'categories'):
-            # Check if category is a category ID (like "bills")
+            # Check if category is a category ID (like "bills", "food_dining")
             if category in self.rule_categorizer.categories:
                 taxonomy_category = self.rule_categorizer.categories[category]
                 return taxonomy_category.get('name', category)
-            
-            # Check if category matches any taxonomy category name
+
+            # Check if category matches any taxonomy category name (case-insensitive)
             for cat_id, cat_info in self.rule_categorizer.categories.items():
                 if cat_info.get('name', '').lower() == category.lower():
                     return cat_info.get('name', category)
-        
-        # Fallback: Static normalization mapping for common mismatches
-        # Maps variant names to standard taxonomy category names
+
+        # Fallback: Comprehensive static normalization mapping (lowercase keys for case-insensitive matching)
+        # Maps IDs, variant names, and common mismatches to standard taxonomy display names
         CATEGORY_NORMALIZATION = {
-            # Utilities -> Bills (most common mismatch)
-            "utilities": "Bills",
-            "Utilities": "Bills",
+            # Category IDs -> Display Names (from taxonomy.yaml)
+            "food_dining": "Food & Dining",
+            "groceries": "Groceries",
+            "transport": "Transport",
+            "travel": "Travel",
+            "fuel": "Fuel",
+            "rent": "Rent",
+            "shopping": "Shopping",
+            "entertainment": "Entertainment",
+            "health": "Health",
+            "education": "Education",
+            "fees_charges": "Fees & Charges",
+            "income_salary": "Income/Salary",
+            "transfers_upi": "Transfers/UPI",
+            "atm_cash": "ATM/Cash",
+            "investments": "Investments",
+            "bills": "Bills",
+            "fraud_security": "Fraud & Security",
+            "insurance": "Insurance",
+            "charity_donations": "Charity & Donations",
+            "personal_care": "Personal Care",
+            "pets": "Pets",
+            "home_improvement": "Home Improvement",
+            "automotive": "Automotive",
+            "taxes_government": "Taxes & Government",
+            "electronics_technology": "Electronics & Technology",
+            "professional_services": "Professional Services",
+            "kids_family": "Kids & Family",
+            "subscriptions_memberships": "Subscriptions & Memberships",
+            "gifts_occasions": "Gifts & Special Occasions",
+            "other": "Other",
+
+            # Common variant names -> Display Names
+            "utilities": "Bills",  # Merchant gazetteer uses "utilities"
             "utility": "Bills",
-            "Utility": "Bills",
-            "bills": "Bills",  # Handle lowercase ID
-            "Bills": "Bills",  # Ensure proper case
-            
-            # Ensure consistency with taxonomy category names
-            # (Add more mappings as needed)
+
+            # Ensure consistency for display names (lowercase for matching)
+            "food & dining": "Food & Dining",
+            "fees & charges": "Fees & Charges",
+            "income/salary": "Income/Salary",
+            "transfers/upi": "Transfers/UPI",
+            "atm/cash": "ATM/Cash",
+            "fraud & security": "Fraud & Security",
+            "charity & donations": "Charity & Donations",
+            "gifts & special occasions": "Gifts & Special Occasions",
         }
-        
-        normalized = CATEGORY_NORMALIZATION.get(category, category)
-        if normalized != category:
-            logger.debug(f"Normalized category '{category}' -> '{normalized}'")
-        return normalized
+
+        # Try case-insensitive matching first
+        normalized = CATEGORY_NORMALIZATION.get(category.lower(), None)
+        if normalized:
+            if normalized != category:
+                logger.debug(f"Normalized category '{category}' -> '{normalized}'")
+            return normalized
+
+        # If no match, return original (already in correct format)
+        return category
 
     def _ensemble_vote(
         self,
@@ -713,9 +753,11 @@ class EnsembleRouter:
         if merchant_confidence >= MERCHANT_CONFIDENCE_THRESHOLD and not is_refund:
             # Boost confidence for merchant matches (they're highly reliable)
             boosted_confidence = min(0.95, merchant_confidence + MERCHANT_CONFIDENCE_BOOST)
-            logger.info(f"High-confidence merchant match: {resolved_merchant} -> {merchant_category} ({merchant_confidence:.2%} -> {boosted_confidence:.2%})")
+            # Normalize category name to ensure display names are returned
+            normalized_category = self._normalize_category_name(merchant_category)
+            logger.info(f"High-confidence merchant match: {resolved_merchant} -> {normalized_category} ({merchant_confidence:.2%} -> {boosted_confidence:.2%})")
             return CategorizationResult(
-                category=merchant_category,
+                category=normalized_category,
                 subcategory=merchant_subcategory,
                 confidence=boosted_confidence,
                 method="merchant_gazetteer",
@@ -723,11 +765,11 @@ class EnsembleRouter:
                 requires_review=False,
                 merchant_resolved=resolved_merchant,
                 ensemble_votes={
-                    "merchant": {"category": merchant_category, "confidence": boosted_confidence},
+                    "merchant": {"category": normalized_category, "confidence": boosted_confidence},
                     "rule": None,
                     "ml": None,
                     "llm": None,
-                    "weighted_votes": {merchant_category: boosted_confidence},
+                    "weighted_votes": {normalized_category: boosted_confidence},
                     "agreement_count": 1,
                     "total_methods": 1
                 },
@@ -751,9 +793,11 @@ class EnsembleRouter:
 
             # HIGH-CONFIDENCE RULE EARLY EXIT (deterministic rules like Fraud, ATM, EMI, Salary, Fuel)
             if rule_result and rule_result[1] >= RULE_EARLY_EXIT_THRESHOLD:
-                logger.info(f"High-confidence deterministic rule: {rule_result[0]} ({rule_result[1]:.2%}) - skipping MCC/ML/LLM")
+                # Normalize category name to ensure display names are returned
+                normalized_category = self._normalize_category_name(rule_result[0])
+                logger.info(f"High-confidence deterministic rule: {normalized_category} ({rule_result[1]:.2%}) - skipping MCC/ML/LLM")
                 return CategorizationResult(
-                    category=rule_result[0],
+                    category=normalized_category,
                     subcategory=rule_result[3],
                     confidence=rule_result[1],
                     method="rule_deterministic",
@@ -761,11 +805,11 @@ class EnsembleRouter:
                     requires_review=False,
                     merchant_resolved=resolved_merchant,
                     ensemble_votes={
-                        "rule": {"category": rule_result[0], "confidence": rule_result[1]},
+                        "rule": {"category": normalized_category, "confidence": rule_result[1]},
                         "mcc": None,
                         "ml": None,
                         "llm": None,
-                        "weighted_votes": {rule_result[0]: rule_result[1]},
+                        "weighted_votes": {normalized_category: rule_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
                     },
@@ -778,9 +822,11 @@ class EnsembleRouter:
             mcc_result = self._run_mcc_classifier(text, mcc)
             # HIGH-CONFIDENCE MCC EARLY EXIT (MCC codes are highly reliable)
             if mcc_result and mcc_result[1] >= MCC_EARLY_EXIT_THRESHOLD:
-                logger.info(f"High-confidence MCC match: {mcc_result[0]} (code: {mcc_result[2]}, conf: {mcc_result[1]:.2%}) - skipping other methods")
+                # Normalize category name to ensure display names are returned
+                normalized_category = self._normalize_category_name(mcc_result[0])
+                logger.info(f"High-confidence MCC match: {normalized_category} (code: {mcc_result[2]}, conf: {mcc_result[1]:.2%}) - skipping other methods")
                 return CategorizationResult(
-                    category=mcc_result[0],
+                    category=normalized_category,
                     subcategory=None,
                     confidence=mcc_result[1],
                     method="mcc_deterministic",
@@ -788,11 +834,11 @@ class EnsembleRouter:
                     requires_review=False,
                     merchant_resolved=resolved_merchant,
                     ensemble_votes={
-                        "mcc": {"category": mcc_result[0], "confidence": mcc_result[1], "mcc_code": mcc_result[2]},
+                        "mcc": {"category": normalized_category, "confidence": mcc_result[1], "mcc_code": mcc_result[2]},
                         "rule": None,
                         "ml": None,
                         "llm": None,
-                        "weighted_votes": {mcc_result[0]: mcc_result[1]},
+                        "weighted_votes": {normalized_category: mcc_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
                     },

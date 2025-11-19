@@ -296,7 +296,7 @@ class TransactionPreprocessor:
         # If not JSON or extraction failed, return original (cleaned)
         return self._clean_text(text)
 
-    def preprocess_with_fields(self, text: str) -> Tuple[str, Optional[float], Optional[str], Optional[str], Optional[str]]:
+    def preprocess_with_fields(self, text: str) -> Tuple[str, Optional[float], Optional[str], Optional[str], Optional[str], Optional[str]]:
         """
         Enhanced preprocessing that extracts both cleaned text and structured fields
 
@@ -304,7 +304,7 @@ class TransactionPreprocessor:
             text: Raw transaction text (could be JSON or plain text)
 
         Returns:
-            Tuple of (cleaned_text, amount, date, currency, merchant)
+            Tuple of (cleaned_text, amount, date, currency, merchant, mcc)
         """
         # Try to parse as JSON
         try:
@@ -315,13 +315,14 @@ class TransactionPreprocessor:
                 date = self._extract_date_from_json(data)
                 currency = self._find_currency(data) or "INR"
                 merchant = self._find_merchant(data)
-                return (cleaned_text, amount, date, currency, merchant)
+                mcc = self._find_mcc(data)
+                return (cleaned_text, amount, date, currency, merchant, mcc)
         except (json.JSONDecodeError, ValueError):
             # Not JSON, return as-is (might be plain text)
             pass
 
         # If not JSON or extraction failed, return original (cleaned)
-        return (self._clean_text(text), None, None, "INR", None)
+        return (self._clean_text(text), None, None, "INR", None, None)
 
     def _extract_from_json(self, data: Dict[str, Any]) -> str:
         """
@@ -443,7 +444,18 @@ class TransactionPreprocessor:
 
     def _find_mcc(self, data: Dict[str, Any]) -> Optional[str]:
         """Find merchant category code in JSON"""
-        return self._find_field(data, ['merchant_category_code', 'mcc', 'category_code'])
+        # First try top-level fields
+        mcc = self._find_field(data, ['merchant_category_code', 'mcc', 'category_code'])
+        if mcc:
+            return mcc
+
+        # If not found, check inside merchant object (common in e-commerce transactions)
+        if 'merchant' in data and isinstance(data['merchant'], dict):
+            merchant_mcc = self._find_field(data['merchant'], ['mcc', 'category_code', 'merchant_category_code'])
+            if merchant_mcc:
+                return merchant_mcc
+
+        return None
 
     def _extract_amount_from_json(self, data: Dict[str, Any]) -> Optional[float]:
         """Extract transaction amount from JSON as a float"""
