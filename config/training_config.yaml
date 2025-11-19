@@ -1,0 +1,105 @@
+# Transaction AI - Training Configuration
+# Central configuration for training pipeline and automatic learning
+
+# Correction Thresholds
+corrections:
+  # Minimum corrections before auto-retraining triggers
+  min_for_retraining: 50
+
+  # Minimum corrections before adding to training data
+  min_for_inclusion: 1
+
+  # Minimum merchant occurrences before adding to gazetteer
+  min_merchant_occurrences: 2
+
+  # Weight recent corrections higher (decay factor per day)
+  recency_weight_decay: 0.99
+
+# Model Training
+training:
+  # LightGBM hyperparameters
+  n_estimators: 200
+  learning_rate: 0.05
+  max_depth: 10
+  num_leaves: 50
+  min_child_samples: 20
+  subsample: 0.8
+  colsample_bytree: 0.8
+  reg_alpha: 0.1
+  reg_lambda: 0.1
+
+  # Output path
+  model_output_path: "models/transaction_classifier_balanced_final"
+
+  # Validation split
+  test_size: 0.15
+  random_seed: 42
+
+# Ensemble Voting Weights
+ensemble:
+  mcc_weight: 0.25
+  rule_weight: 0.25
+  ml_weight: 0.30
+  llm_weight: 0.20
+
+  # Confidence thresholds for early exit
+  mcc_early_exit_threshold: 0.90
+  rule_early_exit_threshold: 0.95
+  merchant_early_exit_threshold: 0.70
+
+  # LLM fallback
+  llm_fallback_threshold: 0.60
+  llm_tiebreaker_min_confidence: 0.70
+  llm_strong_override_threshold: 0.80
+
+# Few-Shot Learning
+few_shot:
+  # Maximum examples per category for LLM
+  max_examples_per_category: 5
+
+  # Minimum corrections before category gets few-shot examples
+  min_corrections_for_few_shot: 3
+
+  # Prefer corrections with higher confidence deltas
+  prefer_high_confidence_delta: true
+
+# Quality Control
+quality:
+  # Flag contradictory corrections (same text, different category)
+  detect_contradictions: true
+
+  # Minimum agreement ratio for auto-inclusion (e.g., 0.8 = 80% of users agree)
+  min_agreement_ratio: 0.7
+
+  # Track and report correction quality metrics
+  track_quality_metrics: true
+
+# Data Sources
+data:
+  # All paths relative to project root
+  corrections_file: "data/corrections/corrections.jsonl"
+  gazetteer_file: "data/gazetteer/merchant_aliases.csv"
+  few_shot_file: "data/few_shot_examples.jsonl"
+  taxonomy_file: "data/taxonomy.yaml"
+
+  # Training data sources (merged in order)
+  training_sources:
+    - "data/balanced/train_consolidated.jsonl"
+    - "data/synthetic_new_categories/train_consolidated.jsonl"
+    - "data/kaggle_new_categories/extracted_transactions.jsonl"
+    - "data/improved_weak_categories/train_consolidated.jsonl"
+
+  test_sources:
+    - "data/balanced/test_consolidated.jsonl"
+    - "data/synthetic_new_categories/test_consolidated.jsonl"
+    - "data/kaggle_new_categories/extracted_test_transactions.jsonl"
+    - "data/improved_weak_categories/test_consolidated.jsonl"
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+  # Log retraining events
+  log_retraining_events: true
+  retraining_log_file: "logs/auto_retraining.log"

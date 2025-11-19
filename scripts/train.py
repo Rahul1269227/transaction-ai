@@ -17,8 +17,12 @@ import subprocess
 import sys
 import json
 import random
+import yaml
+import csv
+import re
 from pathlib import Path
-from collections import Counter
+from collections import Counter, defaultdict
+from datetime import datetime
 
 # Optimal hyperparameters (pre-configured for best performance)
 # NOTE: Always using 'transaction_classifier_balanced_final' as model name
@@ -56,6 +60,243 @@ def save_jsonl(data, file_path):
     with open(file_path, 'w') as f:
         for item in data:
             f.write(json.dumps(item) + '\n')
+
+def load_config():
+    """Load training configuration"""
+    config_path = Path("config/training_config.yaml")
+    if config_path.exists():
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    return {}
+
+def load_and_apply_corrections(train_data, test_data):
+    """
+    Load corrections and apply them to training data.
+
+    Strategy:
+    1. Load all corrections from corrections.jsonl
+    2. Update existing samples if text matches (relabel)
+    3. Add new samples for unique corrections
+    4. Return enhanced training data
+    """
+    config = load_config()
+    corrections_file = config.get('data', {}).get('corrections_file', 'data/corrections/corrections.jsonl')
+
+    if not Path(corrections_file).exists():
+        print("ℹ️  No corrections file found, skipping correction integration")
+        return train_data, test_data, 0
+
+    corrections = load_jsonl(corrections_file)
+    if not corrections:
+        print("ℹ️  No corrections found, skipping correction integration")
+        return train_data, test_data, 0
+
+    print(f"\n📝 Applying {len(corrections)} user corrections...")
+
+    # Build correction map: text -> correct category
+    correction_map = {}
+    unique_corrections = []
+
+    for corr in corrections:
+        text = corr.get('transaction_text', '').strip().lower()
+        correct_cat = corr.get('correct_category')
+
+        if text and correct_cat:
+            correction_map[text] = correct_cat
+            unique_corrections.append({
+                'text': corr.get('transaction_text', ''),
+                'label': correct_cat,
+                'amount': corr.get('amount'),
+                'date': corr.get('date'),
+            })
+
+    # Apply corrections to existing training data
+    relabeled_count = 0
+    for item in train_data:
+        item_text = item.get('text', '').strip().lower()
+        if item_text in correction_map:
+            old_label = item.get('label', item.get('category'))
+            new_label = correction_map[item_text]
+            if old_label != new_label:
+                item['label'] = new_label
+                if 'category' in item:
+                    item['category'] = new_label
+                relabeled_count += 1
+
+    # Add unique corrections as new samples (if not already in training data)
+    existing_texts = {item.get('text', '').strip().lower() for item in train_data}
+    new_samples = [corr for corr in unique_corrections
+                   if corr['text'].strip().lower() not in existing_texts]
+
+    if new_samples:
+        train_data.extend(new_samples)
+
+    print(f"   ✓ Relabeled {relabeled_count} existing samples")
+    print(f"   ✓ Added {len(new_samples)} new samples from corrections")
+    print(f"   ✓ Total corrections applied: {relabeled_count + len(new_samples)}")
+
+    return train_data, test_data, len(corrections)
+
+def extract_merchant_from_text(text):
+    """Extract potential merchant name from transaction text"""
+    # Remove common transaction keywords
+    clean = re.sub(r'\b(purchase|payment|transaction|from|to|at|via|ref|refund|return)\b', '', text, flags=re.IGNORECASE)
+    # Remove numbers, special chars
+    clean = re.sub(r'[0-9#\-/\\*]+', '', clean)
+    clean = clean.strip()
+    # Return first meaningful token (usually merchant name)
+    tokens = [t.strip() for t in clean.split() if len(t.strip()) > 2]
+    return tokens[0] if tokens else None
+
+def learn_merchants_from_corrections():
+    """Learn merchant patterns from corrections and update gazetteer"""
+    config = load_config()
+    corrections_file = config.get('data', {}).get('corrections_file', 'data/corrections/corrections.jsonl')
+    gazetteer_file = config.get('data', {}).get('gazetteer_file', 'data/gazetteer/merchant_aliases.csv')
+    min_occurrences = config.get('corrections', {}).get('min_merchant_occurrences', 2)
+
+    if not Path(corrections_file).exists():
+        print("ℹ️  No corrections file found, skipping merchant learning")
+        return 0
+
+    corrections = load_jsonl(corrections_file)
+    if not corrections:
+        print("ℹ️  No corrections found, skipping merchant learning")
+        return 0
+
+    print(f"\n🏪 Learning merchants from {len(corrections)} corrections...")
+
+    # Count merchant -> category mappings
+    merchant_categories = defaultdict(Counter)
+
+    for corr in corrections:
+        text = corr.get('transaction_text', '')
+        category = corr.get('correct_category')
+
+        if text and category:
+            merchant = extract_merchant_from_text(text)
+            if merchant and len(merchant) >= 3:
+                merchant_categories[merchant.lower()][category] += 1
+
+    # Load existing gazetteer
+    existing_merchants = set()
+    if Path(gazetteer_file).exists():
+        try:
+            with open(gazetteer_file, 'r') as f:
+                reader = csv.DictReader(f)
+                existing_merchants = {row['merchant'].lower() for row in reader if 'merchant' in row}
+        except:
+            pass
+
+    # Find merchants with enough occurrences
+    new_merchants = []
+    for merchant, cat_counts in merchant_categories.items():
+        total_count = sum(cat_counts.values())
+        if total_count >= min_occurrences and merchant not in existing_merchants:
+            # Use most common category for this merchant
+            most_common_cat = cat_counts.most_common(1)[0][0]
+            new_merchants.append({
+                'merchant': merchant.title(),
+                'category': most_common_cat,
+                'count': total_count
+            })
+
+    if new_merchants:
+        # Append to gazetteer
+        Path(gazetteer_file).parent.mkdir(parents=True, exist_ok=True)
+        file_exists = Path(gazetteer_file).exists()
+
+        with open(gazetteer_file, 'a', newline='') as f:
+            fieldnames = ['merchant', 'category', 'aliases']
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+
+            if not file_exists:
+                writer.writeheader()
+
+            for merch in new_merchants:
+                writer.writerow({
+                    'merchant': merch['merchant'],
+                    'category': merch['category'],
+                    'aliases': ''
+                })
+
+        print(f"   ✓ Added {len(new_merchants)} new merchants to gazetteer")
+        return len(new_merchants)
+    else:
+        print(f"   ℹ️  No new merchants to add (min occurrences: {min_occurrences})")
+        return 0
+
+def generate_few_shot_examples_from_corrections():
+    """Generate few-shot examples for LLM from high-quality corrections"""
+    config = load_config()
+    corrections_file = config.get('data', {}).get('corrections_file', 'data/corrections/corrections.jsonl')
+    few_shot_file = config.get('data', {}).get('few_shot_file', 'data/few_shot_examples.jsonl')
+    max_per_category = config.get('few_shot', {}).get('max_examples_per_category', 5)
+    min_for_few_shot = config.get('few_shot', {}).get('min_corrections_for_few_shot', 3)
+
+    if not Path(corrections_file).exists():
+        print("ℹ️  No corrections file found, skipping few-shot generation")
+        return 0
+
+    corrections = load_jsonl(corrections_file)
+    if not corrections:
+        print("ℹ️  No corrections found, skipping few-shot generation")
+        return 0
+
+    print(f"\n🎯 Generating few-shot examples from corrections...")
+
+    # Group corrections by category
+    by_category = defaultdict(list)
+
+    for corr in corrections:
+        text = corr.get('transaction_text', '')
+        category = corr.get('correct_category')
+        predicted = corr.get('predicted_category')
+
+        if text and category:
+            # Prefer corrections with high confidence delta (model was wrong)
+            confidence_delta = 1.0 if predicted != category else 0.5
+            by_category[category].append({
+                'text': text,
+                'category': category,
+                'priority': confidence_delta
+            })
+
+    # Load existing few-shot examples
+    existing_examples = []
+    if Path(few_shot_file).exists():
+        existing_examples = load_jsonl(few_shot_file)
+
+    existing_texts = {ex.get('text', '').strip().lower() for ex in existing_examples}
+
+    # Select best examples per category
+    new_examples = []
+    for category, examples in by_category.items():
+        if len(examples) >= min_for_few_shot:
+            # Sort by priority (wrong predictions first)
+            examples.sort(key=lambda x: x['priority'], reverse=True)
+
+            # Take top N unique examples
+            added = 0
+            for ex in examples:
+                if ex['text'].strip().lower() not in existing_texts and added < max_per_category:
+                    new_examples.append({
+                        'text': ex['text'],
+                        'category': ex['category']
+                    })
+                    existing_texts.add(ex['text'].strip().lower())
+                    added += 1
+
+    if new_examples:
+        # Append to few-shot file
+        all_examples = existing_examples + new_examples
+        save_jsonl(all_examples, few_shot_file)
+        print(f"   ✓ Added {len(new_examples)} new few-shot examples")
+        print(f"   ✓ Total few-shot examples: {len(all_examples)}")
+        return len(new_examples)
+    else:
+        print(f"   ℹ️  No new few-shot examples to add (min per category: {min_for_few_shot})")
+        return 0
 
 def merge_all_data_sources():
     """
@@ -130,6 +371,15 @@ def merge_all_data_sources():
     print("   ⏭️  This dataset was causing confusion with generic company names")
     # balanced_kaggle_train = load_jsonl("data/balanced_kaggle/train_consolidated.jsonl")
     # balanced_kaggle_test = load_jsonl("data/balanced_kaggle/test_consolidated.jsonl")
+
+    # 6. Apply user corrections
+    all_train, all_test, correction_count = load_and_apply_corrections(all_train, all_test)
+
+    # 7. Learn merchants from corrections
+    merchant_count = learn_merchants_from_corrections()
+
+    # 8. Generate few-shot examples from corrections
+    few_shot_count = generate_few_shot_examples_from_corrections()
 
     # Summary
     print("\n" + "=" * 70)
