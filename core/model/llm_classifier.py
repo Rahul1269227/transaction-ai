@@ -94,7 +94,7 @@ class LLMClassifier:
                 "Food & Dining", "Groceries", "Shopping", "Transport",
                 "Fuel", "Health", "Entertainment", "Travel", "Utilities",
                 "Bills", "Rent", "Education", "Investments", "ATM/Cash",
-                "Transfers/UPI", "Fees & Charges", "Income/Salary", "Other"
+                "transfers_upi", "fees_charges", "income_salary", "Other"
             ]
 
     def _build_prompt(self, transaction_text: str, amount: Optional[float] = None) -> str:
