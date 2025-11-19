@@ -3,6 +3,13 @@ Embedding-based Transaction Classifier
 Uses sentence transformers for embeddings + lightweight ML classifier
 """
 
+import os
+import warnings
+
+# Suppress LightGBM warnings before importing
+os.environ['LIGHTGBM_VERBOSITY'] = '-1'
+warnings.filterwarnings('ignore', category=UserWarning, module='lightgbm')
+
 import pickle
 import numpy as np
 from typing import List, Dict, Optional, Tuple, Any
@@ -224,7 +231,7 @@ class EmbeddingClassifier:
                 class_weight=weight_param,
                 random_state=42,
                 n_jobs=n_jobs,  # Use all CPU cores for parallel training
-                verbose=1  # Show progress (1 = show progress every iteration)
+                verbosity=-1  # Suppress all warnings and output
             )
         elif XGBOOST_AVAILABLE:
             import xgboost as xgb
