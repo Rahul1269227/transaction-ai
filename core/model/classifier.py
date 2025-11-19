@@ -65,10 +65,11 @@ class EmbeddingClassifier:
         self.encoder_model_name = encoder_model
         self.classifier_type = classifier_type
 
-        # Load encoder
+        # Load encoder with device specification
         if SENTENCE_TRANSFORMERS_AVAILABLE:
             try:
-                self.encoder = SentenceTransformer(encoder_model)
+                # Initialize with CPU device for consistency
+                self.encoder = SentenceTransformer(encoder_model, device='cpu')
                 self.embedding_dim = self.encoder.get_sentence_embedding_dimension()
             except Exception as e:
                 logging.warning(f"Failed to load encoder: {e}. Using mock embeddings.")
@@ -88,7 +89,7 @@ class EmbeddingClassifier:
 
     def encode_text(self, texts: List[str]) -> np.ndarray:
         """
-        Encode texts to embeddings
+        Encode texts to embeddings with optimized batching
 
         Args:
             texts: List of text strings
@@ -97,8 +98,18 @@ class EmbeddingClassifier:
             numpy array of shape (n_texts, embedding_dim)
         """
         if self.encoder is not None:
-            embeddings = self.encoder.encode(texts, show_progress_bar=False)
-            return np.array(embeddings)
+            # Optimized encoding with batching for faster processing
+            # batch_size=256 processes 256 samples at once
+            # convert_to_numpy=True returns numpy arrays directly
+            # normalize_embeddings=True improves similarity comparisons
+            embeddings = self.encoder.encode(
+                texts,
+                batch_size=256,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                normalize_embeddings=True
+            )
+            return embeddings
         else:
             # Mock embeddings for testing without model
             return np.random.randn(len(texts), self.embedding_dim)
