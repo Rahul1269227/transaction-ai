@@ -203,3 +203,7 @@ secrets/
 credentials/
 *.env.production
 .secrets/
+
+# BFG Repo Cleaner reports
+.bfg-report/
+..bfg-report/
