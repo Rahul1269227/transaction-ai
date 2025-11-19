@@ -478,9 +478,34 @@ class EnsembleRouter:
                 requires_review=True
             )
 
-        # Get winner
-        winner_category = max(votes.items(), key=lambda x: x[1])[0]
-        winner_score = votes[winner_category]
+        # LLM TIEBREAKER: When rule and ML disagree, trust LLM if available with good confidence
+        llm_tiebreaker_applied = False
+        if (rule_result and ml_result and llm_result and
+            rule_result[0] != ml_result[0] and  # Rule and ML disagree
+            llm_result[1] >= 0.70):  # LLM has good confidence (70%+)
+
+            # Check if LLM agrees with either rule or ML
+            llm_category = llm_result[0]
+            if llm_category in [rule_result[0], ml_result[0]]:
+                logger.info(f"🎯 LLM TIEBREAKER: Rule={rule_result[0]}, ML={ml_result[0]}, LLM={llm_category} (conf: {llm_result[1]:.3f})")
+                logger.info(f"   → Using LLM's choice: '{llm_category}'")
+
+                # Override winner to LLM's choice
+                winner_category = llm_category
+                winner_score = votes[winner_category]
+                llm_tiebreaker_applied = True
+            elif llm_result[1] >= 0.80:
+                # LLM strongly disagrees with both - trust LLM if very confident
+                logger.info(f"🎯 LLM TIEBREAKER (strong disagreement): Rule={rule_result[0]}, ML={ml_result[0]}, LLM={llm_category} (conf: {llm_result[1]:.3f})")
+                logger.info(f"   → Using LLM's choice: '{llm_category}' (high confidence)")
+                winner_category = llm_category
+                winner_score = votes[winner_category]
+                llm_tiebreaker_applied = True
+
+        if not llm_tiebreaker_applied:
+            # Standard voting: Get winner by weighted votes
+            winner_category = max(votes.items(), key=lambda x: x[1])[0]
+            winner_score = votes[winner_category]
 
         # Normalize winner score by total active weight
         # This ensures confidence reflects actual method performance, not just configured weights
@@ -489,7 +514,7 @@ class EnsembleRouter:
         else:
             normalized_score = winner_score
 
-        logger.info(f"Winner score: {winner_score:.4f} (normalized: {normalized_score:.4f}, active_weight: {total_active_weight:.4f})")
+        logger.info(f"Winner score: {winner_score:.4f} (normalized: {normalized_score:.4f}, active_weight: {total_active_weight:.4f}, llm_tiebreaker: {llm_tiebreaker_applied})")
 
         # Determine method(s) that voted for winner
         methods_voted = []
