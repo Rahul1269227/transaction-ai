@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Send, Sparkles, Loader2, ThumbsUp, ThumbsDown, X } from 'lucide-react'
+import { Send, Sparkles, Loader2, ThumbsUp, ThumbsDown, X, Trash2 } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
 
 interface CategorizedResult {
@@ -31,6 +31,13 @@ export default function TransactionCategorizer() {
   const [feedbackNotes, setFeedbackNotes] = useState('')
   const [submittingFeedback, setSubmittingFeedback] = useState(false)
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
+
+  const handleClear = () => {
+    setTransaction('')
+    setResult(null)
+    setShowFeedback(false)
+    setFeedbackSubmitted(false)
+  }
 
   const handleCategorize = async () => {
     if (!transaction.trim()) return
@@ -169,30 +176,45 @@ export default function TransactionCategorizer() {
         </label>
         <div className="flex space-x-3">
           <div className="relative flex-1">
-            <input
-              type="text"
+            <textarea
               value={transaction}
               onChange={(e) => setTransaction(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleCategorize()}
-              placeholder="Enter transaction description..."
-              className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-600 px-6 py-4 text-slate-900 dark:text-white bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-purple-500 dark:focus:border-purple-400 focus:ring-4 focus:ring-purple-500/20 outline-none transition-all duration-200 font-medium placeholder:text-slate-400"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleCategorize()
+                }
+              }}
+              placeholder='Enter transaction description (e.g., {"id": "TXN009", "type": "CARD_POS", "amount": 349.0, "currency": "INR", "description": "FB..."})'
+              rows={4}
+              className="w-full rounded-2xl border-2 border-slate-200 dark:border-slate-600 px-6 py-4 text-slate-900 dark:text-white bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm focus:border-purple-500 dark:focus:border-purple-400 focus:ring-4 focus:ring-purple-500/20 outline-none transition-all duration-200 font-medium placeholder:text-slate-400 resize-none"
             />
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
           </div>
-          <button
-            onClick={handleCategorize}
-            disabled={loading || !transaction.trim()}
-            className="relative inline-flex items-center px-8 py-4 border-2 border-transparent text-base font-bold rounded-2xl text-white bg-gradient-to-r from-blue-600 via-purple-600 to-purple-700 hover:from-blue-700 hover:via-purple-700 hover:to-purple-800 focus:outline-none focus:ring-4 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40"
-          >
-            {loading ? (
-              <Loader2 className="h-6 w-6 animate-spin" />
-            ) : (
-              <>
-                <Send className="h-5 w-5 mr-2" />
-                Categorize
-              </>
-            )}
-          </button>
+          <div className="flex flex-col space-y-3">
+            <button
+              onClick={handleClear}
+              disabled={loading || !transaction.trim()}
+              className="relative inline-flex items-center px-6 py-3 border-2 border-slate-300 dark:border-slate-600 text-base font-bold rounded-2xl text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-4 focus:ring-slate-500/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg shadow-slate-500/10 hover:shadow-xl hover:shadow-slate-500/20"
+            >
+              <Trash2 className="h-5 w-5 mr-2" />
+              Clear
+            </button>
+            <button
+              onClick={handleCategorize}
+              disabled={loading || !transaction.trim()}
+              className="relative inline-flex items-center px-6 py-3 border-2 border-transparent text-base font-bold rounded-2xl text-white bg-gradient-to-r from-blue-600 via-purple-600 to-purple-700 hover:from-blue-700 hover:via-purple-700 hover:to-purple-800 focus:outline-none focus:ring-4 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40"
+            >
+              {loading ? (
+                <Loader2 className="h-6 w-6 animate-spin" />
+              ) : (
+                <>
+                  <Send className="h-5 w-5 mr-2" />
+                  Categorize
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
