@@ -1,6 +1,6 @@
 """
 LLM-based Transaction Classifier
-Uses local LLM (via Ollama) for transaction categorization
+Supports Azure OpenAI and Ollama for transaction categorization
 """
 
 import hashlib
@@ -20,6 +20,7 @@ import time
 logger = logging.getLogger(__name__)
 
 # Load configuration from environment variables
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")  # azure or ollama
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.05"))
 LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.8"))
 LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "80"))
@@ -28,6 +29,12 @@ LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "120"))
 LLM_FEW_SHOT_LIMIT = int(os.getenv("LLM_FEW_SHOT_LIMIT", "5"))
 LLM_MAX_CONCURRENT = int(os.getenv("LLM_MAX_CONCURRENT", "4"))
 LLM_HEALTH_CHECK_TIMEOUT = int(os.getenv("LLM_HEALTH_CHECK_TIMEOUT", "5"))
+
+# Azure OpenAI configuration
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_CHAT_DEPLOYMENT = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "gpt-5")
+OPENAI_API_VERSION = os.getenv("OPENAI_API_VERSION", "2024-12-01-preview")
 
 
 class LLMClassifier:
@@ -56,6 +63,7 @@ class LLMClassifier:
             taxonomy_path: Path to taxonomy YAML
             few_shot_examples: Examples for few-shot learning
         """
+        self.provider = LLM_PROVIDER
         self.ollama_url = ollama_url
         self.model_name = model_name
         self.taxonomy_path = taxonomy_path
@@ -63,6 +71,14 @@ class LLMClassifier:
         self.categories = []
         self._service_unavailable = False  # Track if service is down
         self._error_logged = False  # Only log error once
+
+        # Azure OpenAI configuration
+        self.azure_endpoint = AZURE_OPENAI_ENDPOINT
+        self.azure_api_key = AZURE_OPENAI_API_KEY
+        self.azure_deployment = AZURE_OPENAI_CHAT_DEPLOYMENT
+        self.azure_api_version = OPENAI_API_VERSION
+
+        logger.info(f"LLM Classifier initialized with provider: {self.provider}")
         
         # Initialize response cache (dict-based cache for synchronous methods)
         self._response_cache = {}
@@ -120,26 +136,37 @@ Available Categories:
 
 CRITICAL RULES FOR CATEGORIZATION:
 
-1. **Payment Direction Understanding**:
-   - "TO <merchant>" or "PAID TO <merchant>" = PURCHASE transaction
-   - "FROM <merchant>" = REFUND or INCOME
-   - Wallet payments TO merchants = PURCHASES in the merchant's category
+1. **Income vs Transfers** (HIGHEST PRIORITY):
+   - "Salary", "Deposit", "Income", "Received from Client", "Wire Transfer Received" → **Income/Salary**
+   - "Dividend", "Interest Credit", "Investment Return", "Stock Dividend" → **Investments**
+   - "Transfer to/from own account", "Savings Transfer", "UPI to friend" → **Transfers/UPI**
+   - Key: "RECEIVED FROM" with company/client name = Income, not Transfer
 
-2. **Category Distinctions**:
-   - **Shopping**: E-commerce platforms (Amazon, Flipkart, Myntra, Cloudtail), retail stores, online marketplaces
-   - **Bills**: Recurring utility payments (electricity, water, phone, internet), EMI, credit card bills
-   - **Fees & Charges**: Bank charges, penalties, service fees (NOT merchant payments)
-   - **Transfers/UPI**: Person-to-person transfers, account transfers (NOT merchant payments)
+2. **Professional Services vs Fees**:
+   - "Law Office", "Attorney", "Lawyer", "Consultant", "Accounting", "Legal" + "Fee/Consultation" → **Professional Services**
+   - "Bank Fee", "Service Charge", "Late Fee", "Transaction Fee", "Penalty" → **Fees & Charges**
+   - Key: Professional = paying for expertise, Fees = bank/system charges
 
-3. **Merchant Recognition**:
-   - E-commerce sellers (like Cloudtail, Appario, RetailNet) → Shopping
-   - Payment wallets (PayTM, PhonePe, GPay) used TO pay merchants → Use merchant's category
-   - Unknown merchants with "TO <name>" pattern → Likely Shopping or Services
+3. **Subscriptions vs Bills vs Entertainment**:
+   - Streaming (Netflix, Spotify, YouTube Premium, Disney+) → **Subscriptions & Memberships**
+   - Gaming (PlayStation Plus, Xbox Live) → **Subscriptions & Memberships**
+   - Utilities (Electricity, Water, Phone, Internet) → **Bills**
+   - One-time (Movie tickets, Concert) → **Entertainment**
 
-4. **Context Clues**:
-   - Transaction IDs, reference numbers → Not fees
-   - "Subscription", "monthly", "plan" → Bills or Entertainment
-   - Specific merchant names → Research semantic meaning
+4. **Travel Fees**:
+   - "Baggage Fee", "Seat Selection Fee", "Flight Change Fee" → **Travel** (NOT Fees & Charges)
+   - "Airline", "Hotel", "Flight" context → **Travel**
+
+5. **Merchant Context**:
+   - "Whole Foods", "Costco" (NOT gas) → **Groceries**
+   - "Costco Gas", "Shell", "BP" → **Fuel**
+   - E-commerce (Amazon, Flipkart, Myntra) → **Shopping** or **Electronics** based on description
+   - "Venmo", "PayPal" to friend → **Transfers/UPI**
+
+6. **Payment Direction**:
+   - "TO <merchant>" = PURCHASE transaction
+   - "FROM <merchant/client>" = REFUND or INCOME (check context)
+   - Context is key: "Wire Transfer FROM Client" = Income, not Transfer
 
 Instructions:
 1. Analyze the transaction text for payment direction (TO/FROM)
@@ -222,59 +249,92 @@ Response Format (JSON only, no extra text):
             # Build prompt
             prompt = self._build_prompt(text, amount)
 
-            # Call Ollama API with async
-            async with session.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": LLM_TEMPERATURE,
-                        "top_p": LLM_TOP_P,
-                        "num_predict": LLM_MAX_TOKENS,
-                        "num_thread": LLM_NUM_THREADS  # Parallelize within model inference
-                    }
-                },
-                timeout=aiohttp.ClientTimeout(total=timeout)
-            ) as response:
-                if response.status != 200:
-                    logger.error(f"LLM API error: {response.status}")
-                    return "Other", 0.5, "LLM API error"
+            # Call LLM API based on provider
+            if self.provider == "azure":
+                # Azure OpenAI API (GPT-5)
+                url = f"{self.azure_endpoint}/openai/deployments/{self.azure_deployment}/chat/completions?api-version={self.azure_api_version}"
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": self.azure_api_key
+                }
+                # GPT-5 specific parameters: uses max_completion_tokens, doesn't support top_p
+                payload = {
+                    "messages": [
+                        {"role": "system", "content": "You are a financial transaction categorization expert."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": LLM_TEMPERATURE,
+                    "max_completion_tokens": LLM_MAX_TOKENS
+                }
 
-                # Parse response
-                result = await response.json()
-                llm_output = result.get('response', '').strip()
+                async with session.post(
+                    url,
+                    headers=headers,
+                    json=payload,
+                    timeout=aiohttp.ClientTimeout(total=timeout)
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        logger.error(f"Azure OpenAI API error: {response.status} - {error_text}")
+                        return "Other", 0.5, "LLM API error"
 
-                # Extract JSON from response
-                try:
-                    json_start = llm_output.find('{')
-                    json_end = llm_output.rfind('}') + 1
-                    if json_start >= 0 and json_end > json_start:
-                        json_str = llm_output[json_start:json_end]
-                        parsed = json.loads(json_str)
+                    result = await response.json()
+                    llm_output = result['choices'][0]['message']['content'].strip()
+                    logger.info(f"Azure GPT-5 raw response: {llm_output[:200]}")
 
-                        category = parsed.get('category', 'Other')
-                        confidence = float(parsed.get('confidence', 0.5))
-                        reasoning = parsed.get('reasoning', 'No reasoning provided')
+            else:
+                # Ollama API (local LLM)
+                async with session.post(
+                    f"{self.ollama_url}/api/generate",
+                    json={
+                        "model": self.model_name,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": LLM_TEMPERATURE,
+                            "top_p": LLM_TOP_P,
+                            "num_predict": LLM_MAX_TOKENS,
+                            "num_thread": LLM_NUM_THREADS
+                        }
+                    },
+                    timeout=aiohttp.ClientTimeout(total=timeout)
+                ) as response:
+                    if response.status != 200:
+                        logger.error(f"Ollama API error: {response.status}")
+                        return "Other", 0.5, "LLM API error"
 
-                        # Validate category
-                        if category not in self.categories:
-                            category = self._find_closest_category(category)
+                    result = await response.json()
+                    llm_output = result.get('response', '').strip()
 
-                        # Cache the successful response
-                        result_tuple = (category, confidence, reasoning)
-                        self._response_cache[cache_key] = result_tuple
-                        logger.debug(f"LLM cache stored for: {text[:50]}...")
+            # Extract JSON from response (common for both providers)
+            try:
+                json_start = llm_output.find('{')
+                json_end = llm_output.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = llm_output[json_start:json_end]
+                    parsed = json.loads(json_str)
 
-                        return result_tuple
-                    else:
-                        logger.warning(f"No JSON found in LLM response: {llm_output}")
-                        return "Other", 0.5, "Failed to parse LLM response"
+                    category = parsed.get('category', 'Other')
+                    confidence = float(parsed.get('confidence', 0.5))
+                    reasoning = parsed.get('reasoning', 'No reasoning provided')
 
-                except json.JSONDecodeError as e:
-                    logger.error(f"JSON parse error: {e}, response: {llm_output}")
-                    return "Other", 0.5, "Invalid JSON from LLM"
+                    # Validate category
+                    if category not in self.categories:
+                        category = self._find_closest_category(category)
+
+                    # Cache the successful response
+                    result_tuple = (category, confidence, reasoning)
+                    self._response_cache[cache_key] = result_tuple
+                    logger.debug(f"LLM cache stored for: {text[:50]}...")
+
+                    return result_tuple
+                else:
+                    logger.warning(f"No JSON found in LLM response: {llm_output}")
+                    return "Other", 0.5, "Failed to parse LLM response"
+
+            except json.JSONDecodeError as e:
+                logger.error(f"JSON parse error: {e}, response: {llm_output}")
+                return "Other", 0.5, "Invalid JSON from LLM"
 
         except asyncio.TimeoutError:
             if not self._error_logged:

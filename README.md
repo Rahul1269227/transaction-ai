@@ -17,8 +17,9 @@ Combines rule-based logic + ML embeddings + LLM reasoning for production-grade a
 - **100% Offline**: No API keys, runs entirely locally
 - **18 Categories**: Food, Transport, Bills, Health, Shopping, Entertainment, etc.
 - **Auto-Learning**: Continuously improves from user feedback
+- **Fairness & Bias Evaluation**: Automated reporting on model performance across transaction amounts and categories
 - **Production-Ready**: Docker + Postgres + Redis + Prometheus monitoring
-- **Modern UI**: Next.js dashboard with batch upload support
+- **Modern UI**: Next.js dashboard with batch upload support and bias reports
 
 ### Latest Optimizations (v1.2)
 
@@ -27,10 +28,11 @@ Combines rule-based logic + ML embeddings + LLM reasoning for production-grade a
 - 3-second LLM timeout prevents cascade failures
 - Parallel execution with graceful degradation
 
-**Accuracy:**
+**Accuracy & Robustness:**
 - Merchant-first strategy (≥85% confidence bypasses voting)
 - Fuzzy full-text merchant matching
 - 13,907 test samples with natural language augmentation
+- **Bias Mitigation**: New evaluation pipeline to ensure consistent performance across transaction amounts
 
 ---
 
@@ -312,6 +314,14 @@ pytest
 python scripts/test_ensemble_performance.py
 ```
 
+### Bias Evaluation (New)
+
+```bash
+python scripts/evaluate_bias.py --model models/transaction_classifier --test data/balanced/test.jsonl
+```
+
+Generates a fairness report in `reports/bias_report.md`.
+
 ---
 
 ## Project Structure
@@ -326,14 +336,15 @@ transaction-ai/
 │   │   └── ensemble_router.py # Ensemble voting logic
 │   ├── rules/engine.py        # Rule-based categorizer
 │   ├── resolve/resolver.py    # Merchant fuzzy matching
-│   └── normalize/normalizer.py # Text preprocessing
+│   ├── normalize/normalizer.py # Text preprocessing
 ├── data/
 │   ├── taxonomy.yaml          # 18 category definitions
 │   ├── gazetteer/merchant_aliases.csv # 90+ merchants
 │   └── balanced/              # Training data (included)
 ├── scripts/
 │   ├── train_model.py         # ML training
-│   └── feedback_learning.py   # Auto-retraining
+│   ├── feedback_learning.py   # Auto-retraining
+│   └── evaluate_bias.py       # Fairness evaluation
 ├── infra/docker-compose.yaml  # Production deployment
 └── ui/                        # Next.js dashboard
 ```
@@ -443,13 +454,14 @@ MIT License - see [LICENSE](LICENSE)
 - [x] Prometheus + Grafana monitoring
 - [x] Auto-learning from feedback
 - [x] **Performance Mode (Fast Path)** - Skip LLM when rule+ML agree
+- [x] Fairness & Bias Evaluation Reports
+- [x] Explainability Dashboard UI
 
 ### v1.3 (Next)
 - [ ] Fine-tune LLM on real data
 - [ ] Active learning pipeline
 - [ ] Multi-currency support
 - [ ] REST API authentication
-- [ ] Explainability dashboard UI
 
 ### v2.0 (Future)
 - [ ] Real-time streaming (Kafka)

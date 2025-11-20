@@ -29,7 +29,7 @@ training:
   reg_lambda: 0.1
 
   # Output path
-  model_output_path: "models/transaction_classifier_balanced_final"
+  model_output_path: "models/transaction_classifier"
 
   # Validation split
   test_size: 0.15

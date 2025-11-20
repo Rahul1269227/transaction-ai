@@ -17,6 +17,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
+from collections import deque
+from threading import Lock
 
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -69,6 +71,51 @@ RouterType = Union[HybridRouter, EnsembleRouter]
 Base = declarative_base()
 
 
+class RuntimeStatsTracker:
+    """In-memory tracker for request-level metrics."""
+
+    def __init__(self, window: int = 500) -> None:
+        self.window = window
+        self.latencies: deque[float] = deque(maxlen=window)
+        self.total_requests = 0
+        self.review_requests = 0
+        self.confidence_sum = 0.0
+        self.lock = Lock()
+
+    def record(self, duration_ms: float, output: Optional[TransactionOutput]) -> None:
+        if output is None:
+            return
+        with self.lock:
+            self.total_requests += 1
+            self.confidence_sum += float(output.confidence or 0.0)
+            if output.requires_review:
+                self.review_requests += 1
+            if duration_ms >= 0:
+                self.latencies.append(duration_ms)
+
+    def snapshot(self) -> Dict[str, float]:
+        with self.lock:
+            avg_latency = (
+                sum(self.latencies) / len(self.latencies) if self.latencies else 0.0
+            )
+            review_rate = (
+                self.review_requests / self.total_requests
+                if self.total_requests
+                else 0.0
+            )
+            avg_confidence = (
+                self.confidence_sum / self.total_requests
+                if self.total_requests
+                else 0.0
+            )
+            return {
+                "total_requests": float(self.total_requests),
+                "avg_latency_ms": avg_latency,
+                "review_rate": review_rate,
+                "avg_confidence": avg_confidence,
+            }
+
+
 def bool_from_env(key: str, default: bool = False) -> bool:
     value = os.getenv(key)
     if value is None:
@@ -113,9 +160,13 @@ GAZETTEER_PATH = resolve_path(
 # Default path can be overridden via MODEL_PATH environment variable
 MODEL_PATH = resolve_path(
     os.getenv("MODEL_PATH"),
-    BASE_DIR / "models" / "transaction_classifier_balanced_final"
+    BASE_DIR / "models" / "transaction_classifier"
 )
 FEW_SHOT_PATH = os.getenv("FEW_SHOT_EXAMPLES_PATH")
+RUNTIME_STATS_WINDOW = int(os.getenv("RUNTIME_STATS_WINDOW", "500"))
+
+# Initialize runtime stats tracker
+runtime_stats_tracker = RuntimeStatsTracker(RUNTIME_STATS_WINDOW)
 
 logging.basicConfig(
     level=getattr(logging, LOG_LEVEL, logging.INFO),
@@ -285,6 +336,11 @@ def record_metrics(
             ENSEMBLE_AGREEMENT.set(agree / total)
 
 
+def record_runtime_stats(duration: float, output: Optional[TransactionOutput]) -> None:
+    """Store latency, confidence, and review stats for the UI dashboard."""
+    runtime_stats_tracker.record(max(duration, 0.0) * 1000.0, output)
+
+
 # Auto-learning helpers -----------------------------------------------------
 def load_training_config():
     """Load training configuration"""
@@ -337,7 +393,7 @@ def reload_router_model():
         old_router = router
 
         # Initialize new router
-        model_path = os.getenv("MODEL_PATH", "models/transaction_classifier_balanced_final")
+        model_path = os.getenv("MODEL_PATH", "models/transaction_classifier")
         new_router = EnsembleRouter(model_path=model_path, enable_llm=True)
 
         # Atomic swap
@@ -728,6 +784,7 @@ async def categorize_transaction(transaction: TransactionInput):
     cached_output = fetch_cached_output(cache_key)
     if cached_output:
         record_metrics("categorize", 0.0, cached_output, cache_hit=True)
+        record_runtime_stats(0.0, cached_output)
         return cached_output
 
     start = time.perf_counter()
@@ -766,6 +823,7 @@ async def categorize_transaction(transaction: TransactionInput):
 
         duration = time.perf_counter() - start
         record_metrics("categorize", duration, response, cache_hit=False)
+        record_runtime_stats(duration, response)
         return response
     except HTTPException:
         raise
@@ -816,6 +874,10 @@ async def categorize_batch(batch: TransactionBatchInput):
         stats = router.get_stats(results)  # type: ignore[arg-type]
         duration = time.perf_counter() - start
         LATENCY_HIST.labels(endpoint="categorize_batch").observe(duration) if PROMETHEUS_ENABLED else None
+
+        per_latency = (duration / len(outputs)) if outputs else duration
+        for output in outputs:
+            record_runtime_stats(per_latency, output)
 
         return TransactionBatchOutput(results=outputs, stats=stats)
     except HTTPException:
@@ -1081,7 +1143,7 @@ async def reload_model():
             return {
                 "status": "success",
                 "message": "Model reloaded successfully",
-                "model_path": os.getenv("MODEL_PATH", "models/transaction_classifier_balanced_final")
+                "model_path": os.getenv("MODEL_PATH", "models/transaction_classifier")
             }
         else:
             raise HTTPException(
@@ -1202,22 +1264,28 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
 @app.get("/stats", tags=["Stats"])
 async def get_stats():
     """Get real-time statistics from the database"""
+    runtime_snapshot = runtime_stats_tracker.snapshot()
+    runtime_total = int(runtime_snapshot["total_requests"])
+    runtime_avg_latency = runtime_snapshot["avg_latency_ms"]
+    runtime_review_rate = runtime_snapshot["review_rate"]
+    runtime_accuracy = runtime_snapshot["avg_confidence"]
+
     if SessionLocal is None:
         # Return default stats if database is not configured
         return {
-            "total_processed": 0,
-            "avg_latency_ms": 0,
-            "accuracy": 0.0,
-            "review_rate": 0.0
+            "total_processed": runtime_total,
+            "avg_latency_ms": runtime_avg_latency,
+            "accuracy": runtime_accuracy,
+            "review_rate": runtime_review_rate,
         }
 
     with db_session() as session:
         if session is None:
             return {
-                "total_processed": 0,
-                "avg_latency_ms": 0,
-                "accuracy": 0.0,
-                "review_rate": 0.0
+                "total_processed": runtime_total,
+                "avg_latency_ms": runtime_avg_latency,
+                "accuracy": runtime_accuracy,
+                "review_rate": runtime_review_rate,
             }
 
         try:
@@ -1234,23 +1302,24 @@ async def get_stats():
             ).scalar() or 0
             review_rate = (review_count / total) if total > 0 else 0.0
 
-            # Calculate average latency (mock for now as we don't store timestamps)
-            # In production, you'd calculate this from request timestamps
-            avg_latency = 850.0  # Default value
+            avg_latency = runtime_avg_latency if runtime_total > 0 else 0.0
+            total_processed = max(total, runtime_total)
+            accuracy = float(avg_confidence) if avg_confidence else runtime_accuracy
+            review_rate = runtime_review_rate if runtime_total > 0 else float(review_rate)
 
             return {
-                "total_processed": total,
+                "total_processed": total_processed,
                 "avg_latency_ms": avg_latency,
-                "accuracy": float(avg_confidence) if avg_confidence else 0.0,
-                "review_rate": float(review_rate)
+                "accuracy": accuracy,
+                "review_rate": review_rate,
             }
         except Exception as exc:
             logger.error(f"Error fetching stats: {exc}")
             return {
-                "total_processed": 0,
-                "avg_latency_ms": 0,
-                "accuracy": 0.0,
-                "review_rate": 0.0
+                "total_processed": runtime_total,
+                "avg_latency_ms": runtime_avg_latency,
+                "accuracy": runtime_accuracy,
+                "review_rate": runtime_review_rate,
             }
 
 

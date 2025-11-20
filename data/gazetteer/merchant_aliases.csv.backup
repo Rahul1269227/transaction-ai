@@ -52,8 +52,11 @@ merchant_id,canonical_name,aliases,category,subcategory
 51,LIFESTYLE,"lifestyle,lifestyle stores,lifestyle*",shopping,Clothing & Fashion
 52,WESTSIDE,"westside,west side,westside*",shopping,Clothing & Fashion
 53,PANTALOONS,"pantaloons,pantaloon,pantaloons*",shopping,Clothing & Fashion
+54,NETFLIX,"netflix,netflix*,nflx,netflix.com,netflix subscription,netflix monthly,netflix premium",bills,Subscription
 55,PRIME_VIDEO,"prime video,amazon prime,primevideo,prime*",bills,Subscription
 56,HOTSTAR,"hotstar,disney hotstar,disney+hotstar,hotstar*",bills,Subscription
+57,SPOTIFY,"spotify,spotify*,sptfy,spotify.com,spotify premium,spotify subscription,spotify monthly",bills,Subscription
+58,YOUTUBE_PREMIUM,"youtube premium,youtube,yt premium,youtube*",bills,Subscription
 59,BOOKMYSHOW,"bookmyshow,book my show,bms,bookmyshow*",entertainment,Movies & Cinema
 60,PVR,"pvr,pvr cinemas,pvr*",entertainment,Movies & Cinema
 61,INOX,"inox,inox movies,inox*",entertainment,Movies & Cinema

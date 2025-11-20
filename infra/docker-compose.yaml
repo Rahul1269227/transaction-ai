@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: ${POSTGRES_CONTAINER:-txn-postgres}
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-transactions}
+      POSTGRES_DB: ${POSTGRES_DB:-txn_user}
       POSTGRES_USER: ${POSTGRES_USER:-txn_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-txn_password}
     ports:
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-transactions}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-txn_user}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,29 +94,41 @@ services:
     ports:
       - "${API_EXTERNAL_PORT:-8000}:${API_PORT:-8000}"
     environment:
-      # Database connection for Docker network
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-txn_user}:${POSTGRES_PASSWORD:-txn_password}@postgres:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-transactions}
-      # Redis connection for Docker network
-      - REDIS_URL=redis://redis:${REDIS_PORT:-6379}/0
+      # Database connection for Docker network (always use 5432 internally)
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-txn_user}:${POSTGRES_PASSWORD:-txn_password}@postgres:5432/${POSTGRES_DB:-transactions}
+      # Redis connection for Docker network (always use 6379 internally)
+      - REDIS_URL=redis://redis:6379/0
       # Application paths inside container
       - TAXONOMY_PATH=/app/${TAXONOMY_PATH:-data/taxonomy.yaml}
       - GAZETTEER_PATH=/app/${GAZETTEER_PATH:-data/gazetteer/merchant_aliases.csv}
-      - MODEL_PATH=/app/${MODEL_PATH:-models/transaction_classifier_balanced_final}
+      - MODEL_PATH=/app/${MODEL_PATH:-models/transaction_classifier}
       - FEW_SHOT_EXAMPLES_PATH=/app/${FEW_SHOT_EXAMPLES_PATH:-data/few_shot_examples.jsonl}
-      # LLM service connection
+      # LLM Provider Configuration
+      - LLM_PROVIDER=${LLM_PROVIDER:-ollama}
+      # Azure OpenAI Configuration
+      - OPENAI_API_VERSION=${OPENAI_API_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_API_ENDPOINT=${AZURE_OPENAI_API_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_CHAT_DEPLOYMENT=${AZURE_OPENAI_CHAT_DEPLOYMENT:-gpt-5}
+      - AZURE_OPENAI_CHAT_DEPLOYMENT_VERSION=${AZURE_OPENAI_CHAT_DEPLOYMENT_VERSION:-2024-12-01-preview}
+      - AZURE_OPENAI_REQUEST_TIMEOUT=${AZURE_OPENAI_REQUEST_TIMEOUT:-120}
+      # Ollama Configuration (fallback)
       - LLM_URL=http://llm-service:11434
       - LLM_MODEL=${LLM_MODEL:-llama3.1:8b}
-      - LLM_TIMEOUT=${LLM_TIMEOUT:-3.0}
+      - LLM_TIMEOUT=${LLM_TIMEOUT:-120}
+      # Ensemble Weights (hardcoded for now)
+      - MCC_WEIGHT=0.15
+      - RULE_WEIGHT=0.15
+      - ML_WEIGHT=0.65
+      - LLM_WEIGHT=0.05
+      - ML_CONFIDENCE_THRESHOLD=0.80
+      - RULE_CONFIDENCE_THRESHOLD=0.80
       # Ensemble configuration
       - USE_ENSEMBLE=${USE_ENSEMBLE:-true}
-      - FAST_MODE=${FAST_MODE:-false}
+      - FAST_MODE=${FAST_MODE:-true}
       - FAST_MODE_THRESHOLD=${FAST_MODE_THRESHOLD:-0.90}
       - ENABLE_PARALLEL=${ENABLE_PARALLEL:-true}
-      # Ensemble weights
-      - MCC_WEIGHT=${MCC_WEIGHT:-0.25}
-      - RULE_WEIGHT=${RULE_WEIGHT:-0.35}
-      - ML_WEIGHT=${ML_WEIGHT:-0.25}
-      - LLM_WEIGHT=${LLM_WEIGHT:-0.15}
       # Confidence thresholds
       - AUTO_ACCEPT_THRESHOLD=${AUTO_ACCEPT_THRESHOLD:-0.85}
       - REVIEW_THRESHOLD=${REVIEW_THRESHOLD:-0.60}
@@ -143,9 +155,9 @@ services:
       - LLM_FALLBACK_THRESHOLD=${LLM_FALLBACK_THRESHOLD:-0.60}
       - MAX_WORKERS=${MAX_WORKERS:-4}
       # LLM generation parameters
-      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.05}
-      - LLM_TOP_P=${LLM_TOP_P:-0.8}
-      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-80}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1.0}
+      - LLM_TOP_P=${LLM_TOP_P:-0.95}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-500}
       - LLM_NUM_THREADS=${LLM_NUM_THREADS:-4}
       - LLM_REQUEST_TIMEOUT=${LLM_REQUEST_TIMEOUT:-120}
       - LLM_FEW_SHOT_LIMIT=${LLM_FEW_SHOT_LIMIT:-5}
