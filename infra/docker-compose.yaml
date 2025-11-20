@@ -135,7 +135,7 @@ services:
       - CACHE_TTL=${CACHE_TTL:-600}
       # Logging and monitoring
       - LOG_LEVEL=${LOG_LEVEL:-info}
-      - PROMETHEUS_ENABLED=${PROMETHEUS_ENABLED:-false}
+      - PROMETHEUS_ENABLED=${PROMETHEUS_ENABLED:-true}
       # Rules engine configuration
       - RULE_HIGH_CONFIDENCE=${RULE_HIGH_CONFIDENCE:-0.95}
       - RULE_MEDIUM_CONFIDENCE=${RULE_MEDIUM_CONFIDENCE:-0.90}
