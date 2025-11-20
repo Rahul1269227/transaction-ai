@@ -22,6 +22,40 @@ interface CategorizedResult {
   }
 }
 
+// Predefined categories from taxonomy
+const CATEGORIES = [
+  { id: "atm_cash", name: "ATM/Cash" },
+  { id: "automotive", name: "Automotive" },
+  { id: "bills", name: "Bills" },
+  { id: "charity_donations", name: "Charity & Donations" },
+  { id: "education", name: "Education" },
+  { id: "electronics_technology", name: "Electronics & Technology" },
+  { id: "entertainment", name: "Entertainment" },
+  { id: "fees_charges", name: "Fees & Charges" },
+  { id: "food_dining", name: "Food & Dining" },
+  { id: "fraud_security", name: "Fraud & Security" },
+  { id: "fuel", name: "Fuel" },
+  { id: "gifts_occasions", name: "Gifts & Special Occasions" },
+  { id: "groceries", name: "Groceries" },
+  { id: "health", name: "Health" },
+  { id: "home_improvement", name: "Home Improvement" },
+  { id: "income_salary", name: "Income/Salary" },
+  { id: "insurance", name: "Insurance" },
+  { id: "investments", name: "Investments" },
+  { id: "kids_family", name: "Kids & Family" },
+  { id: "other", name: "Other" },
+  { id: "personal_care", name: "Personal Care" },
+  { id: "pets", name: "Pets" },
+  { id: "professional_services", name: "Professional Services" },
+  { id: "rent", name: "Rent" },
+  { id: "shopping", name: "Shopping" },
+  { id: "subscriptions_memberships", name: "Subscriptions & Memberships" },
+  { id: "taxes_government", name: "Taxes & Government" },
+  { id: "transfers_upi", name: "Transfers/UPI" },
+  { id: "transport", name: "Transport" },
+  { id: "travel", name: "Travel" },
+]
+
 export default function TransactionCategorizer() {
   const [transaction, setTransaction] = useState('')
   const [loading, setLoading] = useState(false)
@@ -367,13 +401,18 @@ export default function TransactionCategorizer() {
                   <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">
                     Correct Category (optional)
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={feedbackCategory}
                     onChange={(e) => setFeedbackCategory(e.target.value)}
-                    placeholder="e.g., Food & Dining"
                     className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2 text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-700 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
-                  />
+                  >
+                    <option value="">Select correct category...</option>
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
