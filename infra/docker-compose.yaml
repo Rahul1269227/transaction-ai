@@ -117,12 +117,12 @@ services:
       - LLM_MODEL=${LLM_MODEL:-llama3.1:8b}
       - LLM_TIMEOUT=${LLM_TIMEOUT:-50}
       # Ensemble Weights (hardcoded for now)
-      - MCC_WEIGHT=0.15
-      - RULE_WEIGHT=0.15
-      - ML_WEIGHT=0.65
-      - LLM_WEIGHT=0.05
-      - ML_CONFIDENCE_THRESHOLD=0.80
-      - RULE_CONFIDENCE_THRESHOLD=0.80
+      - MCC_WEIGHT=0.20
+      - RULE_WEIGHT=0.20
+      - ML_WEIGHT=0.60
+      - LLM_WEIGHT=0.00
+      - ML_CONFIDENCE_THRESHOLD=0.95
+      - RULE_CONFIDENCE_THRESHOLD=0.95
       # Ensemble configuration
       - USE_ENSEMBLE=${USE_ENSEMBLE:-true}
       - FAST_MODE=${FAST_MODE:-true}

@@ -239,6 +239,24 @@ class RuleCategorizer:
                 explanations=["emi_or_loan_keyword"]
             )
 
+        # Rule 3.5: Utilities & Bills (telecom, internet, electricity, water, gas)
+        telecom_companies = [
+            'verizon', 't-mobile', 'tmobile', 'at&t', 'att', 'sprint',
+            'xfinity', 'comcast', 'spectrum', 'cox', 'frontier',
+            'vodafone', 'airtel', 'jio', 'bsnl', 'idea', 'vi',
+            'electric', 'electricity', 'power bill', 'water bill', 'gas bill',
+            'internet bill', 'broadband bill', 'cable bill', 'phone bill'
+        ]
+        if any(company in text_lower for company in telecom_companies):
+            subcategory = "Phone/Internet" if any(x in text_lower for x in ['verizon', 't-mobile', 'tmobile', 'at&t', 'att', 'vodafone', 'airtel', 'jio', 'phone']) else "Utilities"
+            return RuleMatch(
+                category="Bills",
+                subcategory=subcategory,
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_utilities"],
+                explanations=["utility_telecom_keyword"]
+            )
+
         # Rule 4: Salary/Income (look for salary keywords)
         if any(kw in text_upper for kw in ['SALARY', 'SAL CREDIT', 'PAYROLL', 'SALARY CREDIT']):
             return RuleMatch(
@@ -247,6 +265,23 @@ class RuleCategorizer:
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_salary"],
                 explanations=["salary_keyword"]
+            )
+
+        # Rule 4.5: Charity & Donations (temple, church, mosque, NGO, donation)
+        # IMPORTANT: Check BEFORE Taxes/Government to avoid misclassification
+        charity_keywords = [
+            'temple', 'church', 'mosque', 'gurudwara', 'synagogue', 'mandir',
+            'donation', 'charity', 'ngo', 'red cross', 'unicef', 'oxfam',
+            'crowdfunding', 'gofundme', 'ketto', 'milaap', 'give india',
+            'donate', 'religious donation', 'zakat', 'sadaqah', 'tithe'
+        ]
+        if any(kw in text_lower for kw in charity_keywords):
+            return RuleMatch(
+                category="Charity & Donations",
+                subcategory="Religious Donation" if any(x in text_lower for x in ['temple', 'church', 'mosque', 'gurudwara', 'mandir']) else "Charitable Donation",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_charity"],
+                explanations=["charity_donation_keyword"]
             )
 
         # Rule 5: Taxes & Government (IRS, income tax, property tax, GST, fines)
@@ -261,16 +296,33 @@ class RuleCategorizer:
                 explanations=["property_tax_keyword"]
             )
 
-        # Other tax keywords
-        tax_keywords = [
+        # Other tax keywords (check GST separately for better detection)
+        # IMPORTANT: GST is a tax, not a fee!
+        # GST patterns - use word boundaries to avoid false positives
+        gst_patterns = [
+            r'\bgst\b', r'\bgst\s+(inc|dated|dt|payment)', r'\b(igst|cgst|sgst)\b'
+        ]
+        has_gst = any(re.search(pattern, text_lower) for pattern in gst_patterns)
+
+        general_tax_keywords = [
             'income tax', 'tax payment', 'irs', 'advance tax',
-            'self assessment tax', 'gst payment', 'tds payment', 'challan',
+            'self assessment tax', 'tds payment', 'challan',
             'government fee', 'license fee', 'passport fee', 'visa fee'
         ]
-        if any(kw in text_lower for kw in tax_keywords):
+        has_tax_keyword = any(kw in text_lower for kw in general_tax_keywords)
+
+        if has_gst or has_tax_keyword:
+            # Determine subcategory
+            if has_gst:
+                subcategory = "GST"
+            elif 'income tax' in text_lower or 'irs' in text_lower:
+                subcategory = "Income Tax"
+            else:
+                subcategory = "Government Fees"
+
             return RuleMatch(
                 category="Taxes & Government",
-                subcategory="Income Tax" if 'income tax' in text_lower or 'irs' in text_lower else "Government Fees",
+                subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_tax"],
                 explanations=["tax_government_keyword"]
@@ -283,7 +335,9 @@ class RuleCategorizer:
             'motor insurance', 'term insurance', 'policy premium', 'policy payment'
         ]
         insurance_companies = ['lic', 'hdfc life', 'icici prudential', 'sbi life', 'max life',
-                              'bajaj allianz', 'star health', 'care health', 'niva bupa']
+                              'bajaj allianz', 'star health', 'care health', 'niva bupa',
+                              'progressive insurance', 'state farm', 'allstate', 'geico',
+                              'birla sun life insurance', 'birla insurance', 'aditya birla']
 
         has_insurance_keyword = any(kw in text_lower for kw in insurance_keywords)
         has_insurance_company = any(company in text_lower for company in insurance_companies)
@@ -295,6 +349,32 @@ class RuleCategorizer:
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_insurance"],
                 explanations=["insurance_keyword"]
+            )
+
+        # Rule 6.5: Health & Medical (pharmacies, hospitals, clinics, doctors)
+        pharmacy_chains = [
+            'cvs', 'cvs pharmacy', 'walgreens', 'rite aid', 'rite-aid',
+            'walmart pharmacy', 'target pharmacy', 'kroger pharmacy',
+            'apollo pharmacy', 'medplus', 'pharmeasy', 'netmeds', '1mg'
+        ]
+        hospital_keywords = [
+            'hospital', 'clinic', 'medical center', 'health center', 'urgent care',
+            'doctor', 'physician', 'dentist', 'dental', 'orthodontist',
+            'fortis', 'max healthcare', 'apollo hospitals', 'manipal hospital',
+            'columbia asia', 'narayana health', 'aster'
+        ]
+
+        has_pharmacy = any(pharmacy in text_lower for pharmacy in pharmacy_chains)
+        has_hospital = any(kw in text_lower for kw in hospital_keywords)
+
+        if has_pharmacy or has_hospital:
+            subcategory = "Pharmacy" if has_pharmacy else "Doctor/Hospital"
+            return RuleMatch(
+                category="Health",
+                subcategory=subcategory,
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_health"],
+                explanations=["health_medical_keyword"]
             )
 
         # Rule 7: Fuel (high-confidence brand matches)
