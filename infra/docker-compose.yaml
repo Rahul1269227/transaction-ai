@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: ${POSTGRES_CONTAINER:-txn-postgres}
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-txn_user}
+      POSTGRES_DB: ${POSTGRES_DB:-transactions}
       POSTGRES_USER: ${POSTGRES_USER:-txn_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-txn_password}
     ports:
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-txn_user}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-transactions}"]
       interval: 10s
       timeout: 5s
       retries: 5
