@@ -101,3 +101,10 @@ Dockerfile.dev
 
 # OS files
 Thumbs.db
+
+# Bank statements (sensitive personal data)
+*.pdf
+data/*.pdf
+data/**/*.pdf
+*Statement*.pdf
+*_Statement_*.pdf

@@ -88,7 +88,7 @@ merchant_id,canonical_name,aliases,category,subcategory
 90,KOTAK_BANK,"kotak,kotak mahindra,kotak bank,kotak*",transfers_upi,UPI Transfer
 91,YES_BANK,"yes bank,yes,yesbank,yes*",transfers_upi,UPI Transfer
 92,APPLE,"apple,apple.com,apple.com/bill,apple inc,apple*",bills,Subscription
-93,GOOGLE,"google,google.com,google.com/bill,google play,google*",bills,Subscription
+93,GOOGLE,"google,google.com,google.com/bill,google play,google*",subscriptions_memberships,Cloud Storage
 94,MICROSOFT,"microsoft,microsoft.com,msft,office 365,microsoft 365",bills,Subscription
 95,ADOBE,"adobe,adobe.com,adobe creative cloud,adobe*",bills,Subscription
 96,DROPBOX,"dropbox,dropbox*,dropbox.com",bills,Subscription
@@ -328,3 +328,27 @@ merchant_id,canonical_name,aliases,category,subcategory
 331,TESLA_SERVICE,"tesla service,tesla service center",automotive,Vehicle Service
 332,LAW_OFFICE,"law office,legal office,attorney office",professional_services,Legal
 333,APPLE_DIVIDEND,"apple inc,apple dividend,aapl",investments,Dividends
+330,YO_DIMSUM,"yo dimsum,yodimsum,yo dimsum sec 57,yo dim sum",food_dining,Restaurants
+331,SIRAJ_PAN_SHOP,"siraj pan shop,siraj pan,siraj,pan shop",food_dining,Fast Food
+332,SANGAM_MEGA_MART,"sangam mega mart,m s sangam mega mart,sangam mart,ms sangam",groceries,Supermarkets
+333,ZEPTO_MARKETPLACE,"zepto marketplace,zepto marketplace private limited,zepto",groceries,Online Grocery
+334,BLINKIT,"blinkit,grofers,blink it,blinkit*",groceries,Online Grocery
+335,UBER_INDIA,"uber india,uber india systems,uber india systems private limited,uber,uber*",transport,Cab Services
+336,IRCTC_TOURISM,"irctctourism,irctc tourism,irctc_app_upi,irctc app,irctc",travel,Trains
+337,URBAN_COMPANY,"urban company,urbancompany,urban company limited,urbanclap",personal_care,Salon & Spa
+338,BALAJEE_FILLING_STATION,"shree balajee filling station,balajee filling,balajee petrol,shree balajee",fuel,Petrol
+339,SAUMYA_CHEMIST,"saumya chemist,saumya pharmacy,saumya",health,Pharmacy/Medicine
+340,RAKESH_PAN_SHOP,"rakesh pan shop,rakesh pan,rakesh pan shop 2",food_dining,Fast Food
+341,PANDEY_PAN_SHOP,"pandey pan shop,pandey pan",food_dining,Fast Food
+342,RAJESH_PAN_SHOP,"rajesh pan shop,rajesh pan",food_dining,Fast Food
+343,NARAYAN_KIRANA,"narayan kirana store,narayan kirana,kirana store",groceries,Local Stores
+344,AMIT_CEMENT,"amit cement suppliers,amit cement,cement supplier",home_improvement,Home Repairs
+345,KISHAN_OMLET,"kishan omlet shop,kishan omlet,omlet shop",food_dining,Fast Food
+346,PANDEY_TEA_STALL,"pandey tea stall,pandey tea stall 2,pandey tea,tea stall",food_dining,Cafes & Coffee
+347,BADNAAM_CHAI,"badnaam chay,badnam chai,badnaam chai,badnam chay",food_dining,Cafes & Coffee
+348,KANCHAN_JALPAAN,"kanchan jalpaan ghrah,kanchan jalpaan,jalpaan ghrah",food_dining,Restaurants
+349,MISHRA_PHOTOGRAPHY,"mishra photography,mishra photo",professional_services,Professional Membership
+350,GOOGLE,"google,google india,google storage,google one,google play,google services",subscriptions_memberships,Cloud Storage
+351,GOOGLE_INDIA,"google india,google ind,google.in",subscriptions_memberships,Cloud Storage
+352,CRED_BILLS,"cred,cred.club,cred pay,cred app",bills,Credit Card Bills
+353,PERSON_NAMES_UPI,"om yadav,vikas,neetu,rahul,aman,priya,shivam,manish,ajay,akshay",transfers_upi,Peer to Peer

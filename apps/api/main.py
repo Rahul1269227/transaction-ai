@@ -21,7 +21,7 @@ from collections import deque
 from threading import Lock
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from redis import Redis
@@ -47,6 +47,7 @@ sys.path.insert(0, str(BASE_DIR))
 load_dotenv()
 
 from core.model import EnsembleRouter, HybridRouter  # noqa: E402
+from core.parsers.pdf_parser import parse_bank_statement_pdf  # noqa: E402
 from core.models import (  # noqa: E402
     CategoryResult,
     ErrorResponse,
@@ -1259,6 +1260,116 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
     except Exception as exc:
         logger.error(f"Error in batch categorization: {exc}")
         raise HTTPException(status_code=500, detail=f"Batch categorization failed: {exc}")
+
+
+@app.post("/upload-pdf", tags=["Categorization"])
+async def upload_pdf_statement(file: UploadFile = File(...)):
+    """
+    Upload PDF bank statement and extract + categorize transactions
+
+    Accepts PDF files and returns categorized transactions
+    """
+    if not router:
+        raise HTTPException(status_code=503, detail="Service not initialized")
+
+    # Validate file type
+    if not file.filename.lower().endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    # Check file size (max 10MB)
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+    contents = await file.read()
+    if len(contents) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+
+    start = time.perf_counter()
+
+    try:
+        # Save PDF temporarily
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            tmp_file.write(contents)
+            tmp_path = tmp_file.name
+
+        try:
+            # Extract transactions from PDF
+            logger.info(f"Parsing PDF: {file.filename}")
+            transaction_texts = parse_bank_statement_pdf(tmp_path, extract_amounts=False)
+
+            if not transaction_texts:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No transactions found in PDF. Please ensure the file is a valid bank statement."
+                )
+
+            logger.info(f"Extracted {len(transaction_texts)} transactions from PDF")
+
+            # Limit to 1000 transactions
+            if len(transaction_texts) > 1000:
+                logger.warning(f"PDF contains {len(transaction_texts)} transactions, limiting to 1000")
+                transaction_texts = transaction_texts[:1000]
+
+            # Categorize each transaction
+            results = []
+            for idx, txn_text in enumerate(transaction_texts):
+                try:
+                    result = router.categorize(
+                        text=txn_text,
+                        amount=None,
+                        date=None,
+                        currency="INR",
+                    )
+
+                    results.append({
+                        "transaction": txn_text,
+                        "category": result.category,
+                        "subcategory": result.subcategory,
+                        "confidence": float(result.confidence),
+                        "method": result.method,
+                        "status": "success"
+                    })
+
+                    # Log progress for large files
+                    if (idx + 1) % 10 == 0:
+                        logger.info(f"Processed {idx + 1}/{len(transaction_texts)} transactions from PDF")
+
+                except Exception as exc:
+                    logger.warning(f"Error categorizing transaction '{txn_text[:50]}...': {exc}")
+                    results.append({
+                        "transaction": txn_text,
+                        "category": "Unknown",
+                        "subcategory": None,
+                        "confidence": 0.0,
+                        "method": "error",
+                        "status": "error",
+                        "error_message": str(exc)
+                    })
+
+            duration = time.perf_counter() - start
+            logger.info(f"PDF processing completed: {len(transaction_texts)} transactions in {duration:.2f}s")
+
+            return {
+                "filename": file.filename,
+                "results": results,
+                "total": len(transaction_texts),
+                "successful": sum(1 for r in results if r["status"] == "success"),
+                "failed": sum(1 for r in results if r["status"] == "error"),
+                "duration_seconds": duration
+            }
+
+        finally:
+            # Clean up temporary file
+            import os
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                logger.warning(f"Failed to delete temporary file {tmp_path}: {e}")
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error(f"Error processing PDF: {exc}")
+        raise HTTPException(status_code=500, detail=f"PDF processing failed: {exc}")
 
 
 @app.get("/stats", tags=["Stats"])

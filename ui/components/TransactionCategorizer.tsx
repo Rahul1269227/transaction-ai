@@ -10,7 +10,7 @@ interface CategorizedResult {
   subcategory?: string
   confidence: number
   method: string
-  explanations: string[]
+  explanations?: string[]
   requires_review: boolean
   record_id?: number
   ensemble_votes?: {
@@ -276,7 +276,7 @@ export default function TransactionCategorizer() {
             <div className="bg-white/50 dark:bg-slate-800/50 rounded-2xl p-5 border border-slate-200 dark:border-slate-700">
               <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">AI Reasoning</p>
               <ul className="space-y-2">
-                {result.explanations.map((exp, idx) => (
+                {(result.explanations || []).map((exp, idx) => (
                   <li key={idx} className="flex items-start group">
                     <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold mr-3 shadow-md group-hover:scale-110 transition-transform">
                       {idx + 1}

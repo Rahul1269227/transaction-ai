@@ -1,0 +1,93 @@
+{"text": "ZOMATO", "label": "food_dining", "subcategory": "Food Delivery", "source": "icici"}
+{"text": "ZOMATO LIM", "label": "food_dining", "subcategory": "Food Delivery", "source": "icici"}
+{"text": "Zomato", "label": "food_dining", "subcategory": "Food Delivery", "source": "icici"}
+{"text": "SWIGGY", "label": "food_dining", "subcategory": "Food Delivery", "source": "icici"}
+{"text": "Blinkit", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "blinkit.payu@hd", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "bistrobyblinkit", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "Bistro", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "ZEPTO", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "Zepto", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "Zepto Mark", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "zeptomarketplac", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "UBER", "label": "transport", "subcategory": "Cab Services", "source": "icici"}
+{"text": "IRCTC", "label": "travel", "subcategory": "Trains", "source": "icici"}
+{"text": "IRCTC APP", "label": "travel", "subcategory": "Trains", "source": "icici"}
+{"text": "IRCTCTOURI", "label": "travel", "subcategory": "Trains", "source": "icici"}
+{"text": "URBAN", "label": "personal_care", "subcategory": "Salon & Spa", "source": "icici"}
+{"text": "FLIPKART", "label": "shopping", "subcategory": "Online Shopping", "source": "icici"}
+{"text": "Amazon", "label": "shopping", "subcategory": "Online Shopping", "source": "icici"}
+{"text": "Amazon Pay", "label": "shopping", "subcategory": "Online Shopping", "source": "icici"}
+{"text": "amazonpaygrocer", "label": "groceries", "subcategory": "Online Grocery", "source": "icici"}
+{"text": "amazonpayrechar", "label": "bills", "subcategory": "Phone/Internet", "source": "icici"}
+{"text": "Myntra", "label": "shopping", "subcategory": "Clothing & Fashion", "source": "icici"}
+{"text": "MYJIO", "label": "bills", "subcategory": "Phone/Internet", "source": "icici"}
+{"text": "BOOKMYSHOW", "label": "entertainment", "subcategory": "Movies & Cinema", "source": "icici"}
+{"text": "GOOGLE", "label": "subscriptions_memberships", "subcategory": "Cloud Storage", "source": "icici"}
+{"text": "GOOGLE IND", "label": "subscriptions_memberships", "subcategory": "Cloud Storage", "source": "icici"}
+{"text": "Google", "label": "subscriptions_memberships", "subcategory": "Cloud Storage", "source": "icici"}
+{"text": "JioHotstar", "label": "subscriptions_memberships", "subcategory": "Streaming Services", "source": "icici"}
+{"text": "ZERODHA", "label": "investments", "subcategory": "Stocks/Trading", "source": "icici"}
+{"text": "Zerodha", "label": "investments", "subcategory": "Stocks/Trading", "source": "icici"}
+{"text": "INDmoney", "label": "investments", "subcategory": "Mutual Funds", "source": "icici"}
+{"text": "CRED", "label": "bills", "subcategory": "Credit Card Bills", "source": "icici"}
+{"text": "cred.club@axisb", "label": "bills", "subcategory": "Credit Card Bills", "source": "icici"}
+{"text": "cred.telecom@ax", "label": "bills", "subcategory": "Phone/Internet", "source": "icici"}
+{"text": "cred.utility@ax", "label": "bills", "subcategory": "Utility Bills", "source": "icici"}
+{"text": "poweraccess.cre", "label": "bills", "subcategory": "Electricity/Water", "source": "icici"}
+{"text": "SBI FASTag", "label": "transport", "subcategory": "Tolls", "source": "icici"}
+{"text": "ICICI PRUDENTIAL LIFE INS", "label": "insurance", "subcategory": "Life Insurance", "source": "icici"}
+{"text": "ICCL", "label": "insurance", "subcategory": "Life Insurance", "source": "icici"}
+{"text": "ICCLMF@ybl", "label": "investments", "subcategory": "Mutual Funds", "source": "icici"}
+{"text": "CaratLane", "label": "shopping", "subcategory": "Online Shopping", "source": "icici"}
+{"text": "Wow Momo", "label": "food_dining", "subcategory": "Restaurants", "source": "icici"}
+{"text": "SIRAJ", "label": "food_dining", "subcategory": "Fast Food", "source": "icici"}
+{"text": "SIRAJ PAN", "label": "food_dining", "subcategory": "Fast Food", "source": "icici"}
+{"text": "RAKESH", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Pan Shop", "label": "food_dining", "subcategory": "Fast Food", "source": "icici"}
+{"text": "BADNAM", "label": "food_dining", "subcategory": "Cafes & Coffee", "source": "icici"}
+{"text": "KANCHAN", "label": "food_dining", "subcategory": "Restaurants", "source": "icici"}
+{"text": "SAUMYA CHE", "label": "health", "subcategory": "Pharmacy/Medicine", "source": "icici"}
+{"text": "Amit Cemen", "label": "home_improvement", "subcategory": "Home Repairs", "source": "icici"}
+{"text": "Neetu", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SHIVARCHAN", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "VIKAS", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "MANISH", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "AJAY", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "AKSHAY", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Akshay", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "AMAN", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "DEEPAK", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SANJAY", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SANJAY SIN", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "RANOO", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "TIWARI", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SHIVAM", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SHIVAM YAD", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Shivam", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Ms Priya", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Mr ANIL MA", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "MAHANAND", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "MAHESH", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Ravi Kumar", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Nirmal", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "YADVENDRA", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "SURENDRA", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "RAJESH", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "PANKAJ", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "GAURAV", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "GAURAV YAD", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "RAHUL", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "ROSHNI", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "ROSHNI YAD", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "roshni", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "MUKUL", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Mukesh", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "MANOJ", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "VIJAY", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Mr VIJAY", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "NITESH", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "ROHIT DEPA", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Rishabh", "label": "transfers_upi", "subcategory": "Peer to Peer", "source": "icici"}
+{"text": "Swachh", "label": "bills", "subcategory": "Utility Bills", "source": "icici"}
+{"text": "swachhsaathipri", "label": "bills", "subcategory": "Utility Bills", "source": "icici"}
