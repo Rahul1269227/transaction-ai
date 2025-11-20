@@ -101,6 +101,62 @@ class EnsembleRouter:
         "Other": {"auto_accept": 0.95, "review": 0.80},
     }
 
+    # Static normalization mapping
+    CATEGORY_NORMALIZATION = {
+        # Display Names -> Category IDs (reverse mapping from taxonomy.yaml)
+        "food & dining": "food_dining",
+        "groceries": "groceries",
+        "transport": "transport",
+        "travel": "travel",
+        "fuel": "fuel",
+        "rent": "rent",
+        "shopping": "shopping",
+        "entertainment": "entertainment",
+        "health": "health",
+        "education": "education",
+        "fees & charges": "fees_charges",
+        "income/salary": "income_salary",
+        "transfers/upi": "transfers_upi",
+        "atm/cash": "atm_cash",
+        "investments": "investments",
+        "bills": "bills",
+        "fraud & security": "fraud_security",
+        "insurance": "insurance",
+        "charity & donations": "charity_donations",
+        "personal care": "personal_care",
+        "pets": "pets",
+        "home improvement": "home_improvement",
+        "automotive": "automotive",
+        "taxes & government": "taxes_government",
+        "electronics & technology": "electronics_technology",
+        "professional services": "professional_services",
+        "kids & family": "kids_family",
+        "subscriptions & memberships": "subscriptions_memberships",
+        "gifts & special occasions": "gifts_occasions",
+        "other": "other",
+
+        # Common variant names -> IDs
+        "utilities": "bills",  # Merchant gazetteer uses "utilities"
+        "utility": "bills",
+
+        # Ensure IDs are preserved (lowercase for matching)
+        "food_dining": "food_dining",
+        "fees_charges": "fees_charges",
+        "income_salary": "income_salary",
+        "transfers_upi": "transfers_upi",
+        "atm_cash": "atm_cash",
+        "fraud_security": "fraud_security",
+        "charity_donations": "charity_donations",
+        "gifts_occasions": "gifts_occasions",
+        "home_improvement": "home_improvement",
+        "taxes_government": "taxes_government",
+        "electronics_technology": "electronics_technology",
+        "professional_services": "professional_services",
+        "kids_family": "kids_family",
+        "subscriptions_memberships": "subscriptions_memberships",
+        "personal_care": "personal_care",
+    }
+
     def __init__(
         self,
         taxonomy_path: Optional[str] = None,
@@ -381,63 +437,9 @@ class EnsembleRouter:
 
         # Fallback: Comprehensive static normalization mapping (lowercase keys for case-insensitive matching)
         # Maps display names and variant names to standard taxonomy IDs
-        CATEGORY_NORMALIZATION = {
-            # Display Names -> Category IDs (reverse mapping from taxonomy.yaml)
-            "food & dining": "food_dining",
-            "groceries": "groceries",
-            "transport": "transport",
-            "travel": "travel",
-            "fuel": "fuel",
-            "rent": "rent",
-            "shopping": "shopping",
-            "entertainment": "entertainment",
-            "health": "health",
-            "education": "education",
-            "fees & charges": "fees_charges",
-            "income/salary": "income_salary",
-            "transfers/upi": "transfers_upi",
-            "atm/cash": "atm_cash",
-            "investments": "investments",
-            "bills": "bills",
-            "fraud & security": "fraud_security",
-            "insurance": "insurance",
-            "charity & donations": "charity_donations",
-            "personal care": "personal_care",
-            "pets": "pets",
-            "home improvement": "home_improvement",
-            "automotive": "automotive",
-            "taxes & government": "taxes_government",
-            "electronics & technology": "electronics_technology",
-            "professional services": "professional_services",
-            "kids & family": "kids_family",
-            "subscriptions & memberships": "subscriptions_memberships",
-            "gifts & special occasions": "gifts_occasions",
-            "other": "other",
-
-            # Common variant names -> IDs
-            "utilities": "bills",  # Merchant gazetteer uses "utilities"
-            "utility": "bills",
-
-            # Ensure IDs are preserved (lowercase for matching)
-            "food_dining": "food_dining",
-            "fees_charges": "fees_charges",
-            "income_salary": "income_salary",
-            "transfers_upi": "transfers_upi",
-            "atm_cash": "atm_cash",
-            "fraud_security": "fraud_security",
-            "charity_donations": "charity_donations",
-            "gifts_occasions": "gifts_occasions",
-            "home_improvement": "home_improvement",
-            "taxes_government": "taxes_government",
-            "electronics_technology": "electronics_technology",
-            "professional_services": "professional_services",
-            "kids_family": "kids_family",
-            "subscriptions_memberships": "subscriptions_memberships",
-            "personal_care": "personal_care",
-        }
-
+        
         # Try case-insensitive matching first
-        normalized = CATEGORY_NORMALIZATION.get(category.lower(), None)
+        normalized = self.CATEGORY_NORMALIZATION.get(category.lower(), None)
         if normalized:
             if normalized != category:
                 logger.debug(f"Normalized category '{category}' -> '{normalized}'")
@@ -445,6 +447,148 @@ class EnsembleRouter:
 
         # If no match, return original (already in correct format)
         return category
+
+    def _run_categorizers(
+        self,
+        text: str,
+        search_text: str,
+        normalized: Dict[str, Any],
+        merchant: Optional[str],
+        channel: Optional[str],
+        amount: Optional[float],
+        date: Optional[str],
+        mcc: Optional[str],
+        early_rule_result: Optional[Tuple] = None,
+        early_mcc_result: Optional[Tuple] = None
+    ) -> Tuple[Optional[Tuple], Optional[Tuple], Optional[Tuple], Optional[Tuple]]:
+        """
+        Run all categorizers (MCC, Rule, ML, LLM) with intelligent fallback
+        Handles both parallel and sequential execution
+        """
+        mcc_result = early_mcc_result
+        rule_result = early_rule_result
+        ml_result = None
+        llm_result = None
+
+        if self.enable_parallel and self.executor:
+            # Parallel execution with per-method timeouts
+            futures = {}
+            timeouts = {}
+
+            # Don't re-run MCC if already run
+            if mcc and self.mcc_classifier and mcc_result is None and self.mcc_weight > 0:
+                futures['mcc'] = self.executor.submit(self._run_mcc_classifier, text, mcc)
+                timeouts['mcc'] = 1.0  # MCC is instant
+
+            # Don't re-run rule if already run
+            if self.rule_categorizer and rule_result is None and self.rule_weight > 0:
+                futures['rule'] = self.executor.submit(
+                    self._run_rule_categorizer, search_text, merchant, channel, amount, date
+                )
+                timeouts['rule'] = 2.0  # Rules are fast
+
+            if self.ml_classifier and self.ml_weight > 0:
+                futures['ml'] = self.executor.submit(self._run_ml_classifier, search_text, normalized)
+                timeouts['ml'] = 5.0  # ML is moderately fast
+
+            # Wait for initial results to determine if LLM is needed
+            for method in ['rule', 'ml']:
+                if method in futures:
+                    try:
+                        timeout = timeouts.get(method, 10.0)
+                        result = futures[method].result(timeout=timeout)
+                        if method == 'rule':
+                            rule_result = result
+                        elif method == 'ml':
+                            ml_result = result
+                    except (TimeoutError, Exception) as e:
+                        logger.warning(f"{method} method failed: {e}")
+            
+            # Check if LLM is needed
+            should_run_llm = self._should_run_llm(rule_result, ml_result)
+            
+            if should_run_llm:
+                futures['llm'] = self.executor.submit(self._run_llm_classifier, text, amount)
+                timeouts['llm'] = self.llm_timeout
+
+            # Collect remaining results (MCC and possibly LLM)
+            for method in ['mcc', 'llm']:
+                if method in futures:
+                    try:
+                        timeout = timeouts.get(method, 10.0)
+                        result = futures[method].result(timeout=timeout)
+                        if method == 'mcc':
+                            mcc_result = result
+                        elif method == 'llm':
+                            llm_result = result
+                    except TimeoutError:
+                        logger.warning(f"{method} method timed out")
+                    except Exception as e:
+                        logger.error(f"{method} method failed: {e}")
+
+        else:
+            # Sequential execution
+            if mcc and self.mcc_classifier and mcc_result is None and self.mcc_weight > 0:
+                mcc_result = self._run_mcc_classifier(text, mcc)
+
+            if self.rule_categorizer and rule_result is None and self.rule_weight > 0:
+                rule_result = self._run_rule_categorizer(
+                    search_text, merchant, channel, amount, date
+                )
+
+            if self.ml_classifier and self.ml_weight > 0:
+                ml_result = self._run_ml_classifier(search_text, normalized)
+
+            if self._should_run_llm(rule_result, ml_result):
+                logger.info("Running LLM as fallback for low-confidence prediction")
+                llm_result = self._run_llm_classifier(text, amount)
+
+        return mcc_result, rule_result, ml_result, llm_result
+
+    def _should_run_llm(self, rule_result: Optional[Tuple], ml_result: Optional[Tuple]) -> bool:
+        """Determine if LLM should run based on Rule and ML results"""
+        if self.llm_weight == 0.0:
+            logger.info("LLM weight is 0.0 - skipping LLM entirely")
+            return False
+            
+        if not self.llm_classifier:
+            return False
+
+        # Trigger thresholds
+        ml_conf_threshold = float(os.getenv("ML_CONFIDENCE_THRESHOLD", "0.80"))
+        rule_conf_threshold = float(os.getenv("RULE_CONFIDENCE_THRESHOLD", "0.80"))
+
+        rule_conf = rule_result[1] if rule_result else 1.0  # If no rule, don't penalize
+        ml_conf = ml_result[1] if ml_result else 1.0  # If no ML, don't penalize
+
+        # If both missing, run LLM
+        if not rule_result and not ml_result:
+            return True
+
+        if rule_result and ml_result:
+            rule_cat = rule_result[0]
+            ml_cat = ml_result[0]
+
+            if rule_cat != ml_cat:
+                logger.info(f"Rule+ML DISAGREE (Rule={rule_cat}, ML={ml_cat}) - invoking LLM")
+                return True
+            elif rule_conf < rule_conf_threshold or ml_conf < ml_conf_threshold:
+                logger.info(f"Low confidence (Rule={rule_conf:.2f}, ML={ml_conf:.2f}) - invoking LLM")
+                return True
+            else:
+                logger.info("High confidence agreement - skipping LLM")
+                return False
+        
+        # If only one available, check its confidence
+        if ml_result and ml_conf < ml_conf_threshold:
+            logger.info(f"ML confidence low ({ml_conf:.2f}) - invoking LLM")
+            return True
+            
+        if rule_result and rule_conf < rule_conf_threshold:
+            logger.info(f"Rule confidence low ({rule_conf:.2f}) - invoking LLM")
+            return True
+
+        return False
 
     def _ensemble_vote(
         self,
@@ -721,8 +865,10 @@ class EnsembleRouter:
         if merchant is None:
             merchant = normalized['normalized']['merchant']
         channel = normalized['normalized']['channel']
-        # Deterministic rule evaluation before merchant matching
+        
+        # Step 2: Deterministic Rule Early Exit
         # Only run if rule weight > 0
+        early_rule_result = None
         if self.rule_categorizer and self.rule_weight > 0:
             early_rule_result = self._run_rule_categorizer(
                 search_text, merchant, channel, amount, date
@@ -753,7 +899,7 @@ class EnsembleRouter:
                     normalized_data=normalized
                 )
 
-        # Step 2: Resolve merchant (with fuzzy matching on full text)
+        # Step 3: Resolve merchant (with fuzzy matching on full text)
         resolved_merchant = None
         merchant_category = None
         merchant_subcategory = None
@@ -784,8 +930,8 @@ class EnsembleRouter:
         # FIX #1: MERCHANT-FIRST STRATEGY - Merchant matches should dominate
         # Use configured threshold for fuzzy matches (already high-quality from gazetteer)
         # Boost confidence when merchant is clearly identified
-        #
-        # IMPORTANT: Check for REFUND/RETURN keywords FIRST - these override merchant matches
+        
+        # Check for REFUND/RETURN keywords - these override merchant matches
         text_lower = text.lower()
         is_refund = any(keyword in text_lower for keyword in ['refund', 'return', 'reversal', 'chargeback'])
 
@@ -818,257 +964,50 @@ class EnsembleRouter:
         elif is_refund:
             logger.info(f"REFUND/RETURN detected - skipping merchant early-exit, will use ensemble voting")
 
-        # Step 3: Run categorizers (with fast mode optimization)
-        mcc_result = None
-        rule_result = None
-        ml_result = None
-        llm_result = None
-
-        # Try rule-based FIRST for potential early exit (before MCC)
-        # This ensures fraud/security and other high-priority deterministic rules take precedence
-        # Only run if rule weight > 0
-        if self.rule_categorizer and self.rule_weight > 0:
-            rule_result = self._run_rule_categorizer(
-                search_text, resolved_merchant or merchant, channel, amount, date
-            )
-
-            # HIGH-CONFIDENCE RULE EARLY EXIT (deterministic rules like Fraud, ATM, EMI, Salary, Fuel)
-            if rule_result and rule_result[1] >= RULE_EARLY_EXIT_THRESHOLD:
-                # Normalize category name to ensure display names are returned
-                normalized_category = self._normalize_category_name(rule_result[0])
-                logger.info(f"High-confidence deterministic rule: {normalized_category} ({rule_result[1]:.2%}) - skipping MCC/ML/LLM")
-                return CategorizationResult(
-                    category=normalized_category,
-                    subcategory=rule_result[3],
-                    confidence=rule_result[1],
-                    method="rule_deterministic",
-                    explanations=rule_result[2],
-                    requires_review=False,
-                    merchant_resolved=resolved_merchant,
-                    ensemble_votes={
-                        "rule": {"category": normalized_category, "confidence": rule_result[1]},
-                        "mcc": None,
-                        "ml": None,
-                        "llm": None,
-                        "weighted_votes": {normalized_category: rule_result[1]},
-                        "agreement_count": 1,
-                        "total_methods": 1
-                    },
-                    normalized_data=normalized
-                )
-
-        # Try MCC second - if high confidence MCC match, use it directly
-        # (only if deterministic rules didn't match)
-        # Only run if MCC weight > 0
+        # Step 4: MCC Early Exit
+        early_mcc_result = None
         if mcc and self.mcc_classifier and self.mcc_weight > 0:
-            mcc_result = self._run_mcc_classifier(text, mcc)
+            early_mcc_result = self._run_mcc_classifier(text, mcc)
             # HIGH-CONFIDENCE MCC EARLY EXIT (MCC codes are highly reliable)
-            if mcc_result and mcc_result[1] >= MCC_EARLY_EXIT_THRESHOLD:
+            if early_mcc_result and early_mcc_result[1] >= MCC_EARLY_EXIT_THRESHOLD:
                 # Normalize category name to ensure display names are returned
-                normalized_category = self._normalize_category_name(mcc_result[0])
-                logger.info(f"High-confidence MCC match: {normalized_category} (code: {mcc_result[2]}, conf: {mcc_result[1]:.2%}) - skipping other methods")
+                normalized_category = self._normalize_category_name(early_mcc_result[0])
+                logger.info(f"High-confidence MCC match: {normalized_category} (code: {early_mcc_result[2]}, conf: {early_mcc_result[1]:.2%}) - skipping other methods")
                 return CategorizationResult(
                     category=normalized_category,
                     subcategory=None,
-                    confidence=mcc_result[1],
+                    confidence=early_mcc_result[1],
                     method="mcc_deterministic",
-                    explanations=[f"mcc_code={mcc_result[2]}"],
+                    explanations=[f"mcc_code={early_mcc_result[2]}"],
                     requires_review=False,
                     merchant_resolved=resolved_merchant,
                     ensemble_votes={
-                        "mcc": {"category": normalized_category, "confidence": mcc_result[1], "mcc_code": mcc_result[2]},
+                        "mcc": {"category": normalized_category, "confidence": early_mcc_result[1], "mcc_code": early_mcc_result[2]},
                         "rule": None,
                         "ml": None,
                         "llm": None,
-                        "weighted_votes": {normalized_category: mcc_result[1]},
+                        "weighted_votes": {normalized_category: early_mcc_result[1]},
                         "agreement_count": 1,
                         "total_methods": 1
                     },
                     normalized_data=normalized
                 )
 
-        if self.enable_parallel and self.executor:
-            # Parallel execution with per-method timeouts
-            futures = {}
-            timeouts = {}
+        # Step 5: Run Ensemble (Parallel/Sequential)
+        mcc_result, rule_result, ml_result, llm_result = self._run_categorizers(
+            text=text,
+            search_text=search_text,
+            normalized=normalized,
+            merchant=resolved_merchant or merchant,
+            channel=channel,
+            amount=amount,
+            date=date,
+            mcc=mcc,
+            early_rule_result=early_rule_result,
+            early_mcc_result=early_mcc_result
+        )
 
-            # Don't re-run MCC if we already ran it for early exit check
-            # (mcc_result will be None if not run, or < 0.90 if run but didn't exit)
-            # Only run if MCC weight > 0
-            if mcc and self.mcc_classifier and mcc_result is None and self.mcc_weight > 0:
-                futures['mcc'] = self.executor.submit(
-                    self._run_mcc_classifier,
-                    text, mcc
-                )
-                timeouts['mcc'] = 1.0  # MCC is instant
-
-            # Don't re-run rule if we already ran it for early exit check
-            # (rule_result will be None if not run, or < 0.95 if run but didn't exit)
-            # Only run if rule weight > 0
-            if self.rule_categorizer and rule_result is None and self.rule_weight > 0:
-                futures['rule'] = self.executor.submit(
-                    self._run_rule_categorizer,
-                    search_text, resolved_merchant or merchant, channel, amount, date
-                )
-                timeouts['rule'] = 2.0  # Rules are fast
-
-            if self.ml_classifier and self.ml_weight > 0:
-                futures['ml'] = self.executor.submit(
-                    self._run_ml_classifier,
-                    search_text, normalized
-                )
-                timeouts['ml'] = 5.0  # ML is moderately fast
-
-            # FIX #2: LLM AS FALLBACK - Only run LLM when ML/Rule confidence is low
-            # Wait for rule and ML first, then decide if LLM is needed
-            should_skip_llm = False
-
-            # CRITICAL FIX: Skip LLM entirely if weight is 0
-            if self.llm_weight == 0.0:
-                should_skip_llm = True
-                logger.info("LLM weight is 0.0 - skipping LLM entirely")
-            elif self.llm_classifier:
-                # Wait for rule and ML first (but don't reset if already set from early-exit check)
-                for method in ['rule', 'ml']:
-                    if method in futures:
-                        try:
-                            timeout = timeouts.get(method, 10.0)
-                            result = futures[method].result(timeout=timeout)
-                            if method == 'rule':
-                                rule_result = result
-                            elif method == 'ml':
-                                ml_result = result
-                        except (TimeoutError, Exception) as e:
-                            logger.warning(f"{method} method failed: {e}")
-
-                # NEW LOGIC: Trigger LLM if EITHER Rule OR ML has confidence < 80%
-                ml_conf_threshold = float(os.getenv("ML_CONFIDENCE_THRESHOLD", "0.80"))
-                rule_conf_threshold = float(os.getenv("RULE_CONFIDENCE_THRESHOLD", "0.80"))
-
-                # Check Rule and ML confidence
-                rule_conf = rule_result[1] if rule_result else 1.0
-                ml_conf = ml_result[1] if ml_result else 1.0
-
-                # Trigger LLM if either is below threshold OR they disagree
-                if rule_result and ml_result:
-                    rule_cat = rule_result[0]
-                    ml_cat = ml_result[0]
-
-                    if rule_cat != ml_cat:
-                        should_skip_llm = False
-                        logger.info(f"Rule+ML DISAGREE (Rule={rule_cat} {rule_conf:.2%}, ML={ml_cat} {ml_conf:.2%}) - LLM will make final decision")
-                    elif rule_conf < rule_conf_threshold or ml_conf < ml_conf_threshold:
-                        should_skip_llm = False
-                        logger.info(f"Low confidence detected (Rule={rule_conf:.2%}, ML={ml_conf:.2%}) - invoking LLM")
-                    else:
-                        should_skip_llm = True
-                        logger.info(f"High confidence: Rule+ML agree on '{rule_cat}' (Rule={rule_conf:.2%}, ML={ml_conf:.2%}) - skipping LLM")
-                elif ml_result and ml_conf < ml_conf_threshold:
-                    should_skip_llm = False
-                    logger.info(f"ML confidence {ml_conf:.2%} < {ml_conf_threshold:.0%} - invoking LLM")
-                elif rule_result and rule_conf < rule_conf_threshold:
-                    should_skip_llm = False
-                    logger.info(f"Rule confidence {rule_conf:.2%} < {rule_conf_threshold:.0%} - invoking LLM")
-                else:
-                    should_skip_llm = True
-
-            if self.llm_classifier and not should_skip_llm:
-                futures['llm'] = self.executor.submit(
-                    self._run_llm_classifier,
-                    text, amount
-                )
-                timeouts['llm'] = self.llm_timeout  # LLM gets aggressive timeout
-
-            # Collect results with individual timeouts
-            for method, future in futures.items():
-                try:
-                    timeout = timeouts.get(method, 10.0)
-                    result = future.result(timeout=timeout)
-                    if method == 'mcc':
-                        mcc_result = result
-                    elif method == 'rule':
-                        rule_result = result
-                    elif method == 'ml':
-                        ml_result = result
-                    elif method == 'llm':
-                        llm_result = result
-                except TimeoutError:
-                    logger.warning(f"{method} method timed out after {timeouts.get(method)}s - continuing without it")
-                except Exception as e:
-                    logger.error(f"{method} method failed: {e}")
-
-        else:
-            # Sequential execution
-            # Run MCC if not already run
-            # Only run if MCC weight > 0
-            if mcc and self.mcc_classifier and mcc_result is None and self.mcc_weight > 0:
-                mcc_result = self._run_mcc_classifier(text, mcc)
-
-            # Run rules if not already run
-            # Only run if rule weight > 0
-            if self.rule_categorizer and rule_result is None and self.rule_weight > 0:
-                rule_result = self._run_rule_categorizer(
-                    search_text, resolved_merchant or merchant, channel, amount, date
-                )
-
-            # Only run if ML weight > 0
-            if self.ml_classifier and self.ml_weight > 0:
-                ml_result = self._run_ml_classifier(search_text, normalized)
-
-            # FIX #2: LLM AS FALLBACK - Only run when needed
-            should_skip_llm = False
-
-            # CRITICAL FIX: Skip LLM entirely if weight is 0
-            if self.llm_weight == 0.0:
-                should_skip_llm = True
-                logger.info("LLM weight is 0.0 - skipping LLM entirely")
-            else:
-                # NEW LOGIC: Trigger LLM if EITHER Rule OR ML has confidence < 80%
-                ml_conf_threshold = float(os.getenv("ML_CONFIDENCE_THRESHOLD", "0.80"))
-                rule_conf_threshold = float(os.getenv("RULE_CONFIDENCE_THRESHOLD", "0.80"))
-
-                # Check Rule and ML confidence
-                rule_conf = rule_result[1] if rule_result else 1.0  # If no rule, consider high confidence
-                ml_conf = ml_result[1] if ml_result else 1.0  # If no ML, consider high confidence
-
-                # Trigger LLM if either is below threshold OR they disagree
-                if rule_result and ml_result:
-                    rule_cat = rule_result[0]
-                    ml_cat = ml_result[0]
-
-                    # LLM should run if:
-                    # 1. Rule and ML disagree
-                    # 2. Rule confidence < 80%
-                    # 3. ML confidence < 80%
-                    if rule_cat != ml_cat:
-                        should_skip_llm = False
-                        logger.info(f"Rule+ML DISAGREE (Rule={rule_cat} {rule_conf:.2%}, ML={ml_cat} {ml_conf:.2%}) - LLM will make final decision")
-                    elif rule_conf < rule_conf_threshold or ml_conf < ml_conf_threshold:
-                        should_skip_llm = False
-                        logger.info(f"Low confidence detected (Rule={rule_conf:.2%}, ML={ml_conf:.2%}) - invoking LLM")
-                    else:
-                        should_skip_llm = True
-                        logger.info(f"High confidence: Rule+ML agree on '{rule_cat}' (Rule={rule_conf:.2%}, ML={ml_conf:.2%}) - skipping LLM")
-                elif ml_result and ml_conf < ml_conf_threshold:
-                    # Only ML available and low confidence
-                    should_skip_llm = False
-                    logger.info(f"ML confidence {ml_conf:.2%} < {ml_conf_threshold:.0%} - invoking LLM")
-                elif rule_result and rule_conf < rule_conf_threshold:
-                    # Only Rule available and low confidence
-                    should_skip_llm = False
-                    logger.info(f"Rule confidence {rule_conf:.2%} < {rule_conf_threshold:.0%} - invoking LLM")
-                else:
-                    # High confidence from whichever method is available
-                    should_skip_llm = True
-
-            # Run LLM only if needed
-            if should_skip_llm:
-                llm_result = None
-            else:
-                logger.info("Running LLM as fallback for low-confidence prediction")
-                llm_result = self._run_llm_classifier(text, amount)
-
-        # Step 4: Ensemble voting
+        # Step 6: Ensemble voting
         result = self._ensemble_vote(mcc_result, rule_result, ml_result, llm_result)
         result.merchant_resolved = resolved_merchant
         result.normalized_data = normalized  # Attach normalized data to avoid duplicate work in API

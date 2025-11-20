@@ -84,10 +84,11 @@ merchant_id,canonical_name,aliases,category,subcategory
 86,SBI,"sbi,state bank,state bank of india,sbi*",transfers_upi,UPI Transfer
 87,HDFC_BANK,"hdfc,hdfc bank,hdfc*",transfers_upi,UPI Transfer
 88,ICICI_BANK,"icici,icici bank,icici*",transfers_upi,UPI Transfer
+350,ICICI_DIRECT,"icici direct,icicidirect,icici*direct,icici wealth",investments,Stocks/Trading
 89,AXIS_BANK,"axis,axis bank,axis*",transfers_upi,UPI Transfer
 90,KOTAK_BANK,"kotak,kotak mahindra,kotak bank,kotak*",transfers_upi,UPI Transfer
 91,YES_BANK,"yes bank,yes,yesbank,yes*",transfers_upi,UPI Transfer
-92,APPLE,"apple,apple.com,apple.com/bill,apple inc,apple*",bills,Subscription
+92,APPLE,"apple,apple.com,apple.com/bill,apple inc",bills,Subscription
 93,GOOGLE,"google,google.com,google.com/bill,google play,google*",subscriptions_memberships,Cloud Storage
 94,MICROSOFT,"microsoft,microsoft.com,msft,office 365,microsoft 365",bills,Subscription
 95,ADOBE,"adobe,adobe.com,adobe creative cloud,adobe*",bills,Subscription

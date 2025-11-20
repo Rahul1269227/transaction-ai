@@ -111,7 +111,7 @@ class RuleCategorizer:
             # Check if it's a bank transfer refund (IMPS, UPI, NEFT)
             if any(kw in text_upper for kw in ['IMPS', 'UPI', 'NEFT', 'RTGS']):
                 return RuleMatch(
-                    category="Transfers/UPI",
+                    category="transfers_upi",
                     subcategory="Refund",
                     confidence=RULE_HIGH_CONFIDENCE,
                     matched_rules=["deterministic_transfer_refund"],
@@ -119,7 +119,7 @@ class RuleCategorizer:
                 )
             # Otherwise, it's an income/refund
             return RuleMatch(
-                category="Income/Salary",
+                category="income_salary",
                 subcategory="Refunds",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_refund"],
@@ -141,6 +141,8 @@ class RuleCategorizer:
                 (r'\bkirana\s+(store|shop)\b', "Local Stores"),  # Kirana stores
                 (r'\b(mega|super)\s+mart\b', "Supermarkets"),  # Mega marts
                 (r'\b(sangam|mega|super).*mart\b', "Supermarkets"),  # Variations of mega marts
+                (r'\bwhole\s*foods\b', "Supermarkets"),
+                (r'\btrader\s*joe[\'s]*\b', "Supermarkets"),
             ],
             'home_improvement': [
                 (r'\bcement\s+(supplier|suppliers|shop)\b', "Home Repairs"),
@@ -180,17 +182,42 @@ class RuleCategorizer:
 
         if is_person_name and has_upi_context:
             return RuleMatch(
-                category="Transfers/UPI",
+                category="transfers_upi",
                 subcategory="Peer to Peer",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["person_name_upi_pattern"],
                 explanations=["person_name_pattern+upi_context"]
             )
 
-        # Rule 1: ATM/Cash withdrawals
-        if channel == 'ATM' or any(kw in text_upper for kw in ['ATM CASH', 'ATM WDL', 'ATM WITHDRAWAL', 'CASH WITHDRAWAL']):
+        # Rule 0.7: Bank Fees/Charges (Specific Patterns)
+        # Detect specific bank fee patterns (high confidence)
+        # Check BEFORE ATM/Cash rules to avoid misclassifying fees as withdrawals
+        bank_fee_patterns = [
+            r'micro\s+atm\s+(wdl|gst|fee|charge)',
+            r'micro\s+atm.*(fee|gst|tax)',
+            r'atm\s+(wdl|withdrawal)\s+(fee|charge|gst)',
+            r'debit\s+card\s+(fee|charge|amc)',
+            r'sms\s+alert\s+(fee|charge)',
+            r'min\s+bal\s+(charge|fee)',
+            r'imbs\s+fee',
+            r'neft\s+fee',
+            r'rtgs\s+fee'
+        ]
+        if any(re.search(p, text_lower) for p in bank_fee_patterns):
             return RuleMatch(
-                category="ATM/Cash",
+                category="fees_charges",
+                subcategory="Bank Fees",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_bank_fee"],
+                explanations=["bank_fee_pattern"]
+            )
+
+        # Rule 1: ATM/Cash withdrawals
+        # Exclude fees/taxes
+        is_atm_fee = any(kw in text_upper for kw in ['FEE', 'GST', 'TAX', 'CHARGE'])
+        if not is_atm_fee and (channel == 'ATM' or any(kw in text_upper for kw in ['ATM CASH', 'ATM WDL', 'ATM WITHDRAWAL', 'CASH WITHDRAWAL'])):
+            return RuleMatch(
+                category="atm_cash",
                 subcategory="Cash Withdrawal",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_atm"],
@@ -200,7 +227,7 @@ class RuleCategorizer:
         # Rule 2: Rent/Housing payments (mortgage, rent, maintenance)
         if any(kw in text_upper for kw in ['MORTGAGE', 'HOME LOAN', 'HOUSING LOAN', 'MORTGAGE PAYMENT', 'MORTGAGE SERVICE']):
             return RuleMatch(
-                category="Rent",
+                category="rent",
                 subcategory="Mortgage/Home Loan",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_mortgage"],
@@ -211,8 +238,8 @@ class RuleCategorizer:
         # Rent payments
         if any(kw in text_upper for kw in ['RENT PAYMENT', 'TO LANDLORD', 'RENT TO']):
             return RuleMatch(
-                category="Rent",
-                subcategory="Rent",
+                category="rent",
+                subcategory="rent",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_rent"],
                 explanations=["rent_keyword"]
@@ -222,7 +249,7 @@ class RuleCategorizer:
         if ('MAINTENANCE' in text_upper and any(kw in text_upper for kw in ['SOCIETY', 'APARTMENT', 'BUILDING', 'HOA'])) or \
            any(kw in text_upper for kw in ['HOA PAYMENT', 'MAINTENANCE CHARGE', 'MAINTENANCE FEE']):
             return RuleMatch(
-                category="Rent",
+                category="rent",
                 subcategory="HOA/Maintenance",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_maintenance"],
@@ -232,7 +259,7 @@ class RuleCategorizer:
         # Rule 3: EMI/Loan payments
         if any(kw in text_upper for kw in ['EMI ', ' EMI', ' LOAN ', 'LOAN REPAYMENT', 'EMI PAYMENT', 'EMI-']):
             return RuleMatch(
-                category="Bills",
+                category="bills",
                 subcategory="Loan EMI",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_emi"],
@@ -243,14 +270,18 @@ class RuleCategorizer:
         telecom_companies = [
             'verizon', 't-mobile', 'tmobile', 'at&t', 'att', 'sprint',
             'xfinity', 'comcast', 'spectrum', 'cox', 'frontier',
-            'vodafone', 'airtel', 'jio', 'bsnl', 'idea', 'vi',
+            'vodafone', 'airtel', 'jio', 'bsnl', 'idea',
             'electric', 'electricity', 'power bill', 'water bill', 'gas bill',
             'internet bill', 'broadband bill', 'cable bill', 'phone bill'
         ]
-        if any(company in text_lower for company in telecom_companies):
-            subcategory = "Phone/Internet" if any(x in text_lower for x in ['verizon', 't-mobile', 'tmobile', 'at&t', 'att', 'vodafone', 'airtel', 'jio', 'phone']) else "Utilities"
+        
+        # Check for 'vi' specifically with word boundaries to avoid matching 'visit', 'movie', 'service'
+        has_vi = re.search(r'\bvi\b', text_lower)
+        
+        if any(company in text_lower for company in telecom_companies) or has_vi:
+            subcategory = "Phone/Internet" if (has_vi or any(x in text_lower for x in ['verizon', 't-mobile', 'tmobile', 'at&t', 'att', 'vodafone', 'airtel', 'jio', 'phone'])) else "Utilities"
             return RuleMatch(
-                category="Bills",
+                category="bills",
                 subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_utilities"],
@@ -260,7 +291,7 @@ class RuleCategorizer:
         # Rule 4: Salary/Income (look for salary keywords)
         if any(kw in text_upper for kw in ['SALARY', 'SAL CREDIT', 'PAYROLL', 'SALARY CREDIT']):
             return RuleMatch(
-                category="Income/Salary",
+                category="income_salary",
                 subcategory="Salary",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_salary"],
@@ -277,7 +308,7 @@ class RuleCategorizer:
         ]
         if any(kw in text_lower for kw in charity_keywords):
             return RuleMatch(
-                category="Charity & Donations",
+                category="charity_donations",
                 subcategory="Religious Donation" if any(x in text_lower for x in ['temple', 'church', 'mosque', 'gurudwara', 'mandir']) else "Charitable Donation",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_charity"],
@@ -289,7 +320,7 @@ class RuleCategorizer:
         property_tax_keywords = ['PROPERTY TAX', 'HOUSE TAX', 'MUNICIPAL TAX']
         if any(kw in text_upper for kw in property_tax_keywords):
             return RuleMatch(
-                category="Taxes & Government",
+                category="taxes_government",
                 subcategory="Property Tax",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_property_tax"],
@@ -299,11 +330,15 @@ class RuleCategorizer:
         # Other tax keywords (check GST separately for better detection)
         # IMPORTANT: GST is a tax, not a fee!
         # GST patterns - use word boundaries to avoid false positives
+        # Exclude MICRO ATM/Bank charges that include GST (handled by bank_fee_patterns)
         gst_patterns = [
             r'\bgst\b', r'\bgst\s+(inc|dated|dt|payment)', r'\b(igst|cgst|sgst)\b'
         ]
         has_gst = any(re.search(pattern, text_lower) for pattern in gst_patterns)
-
+        
+        # Verify it's not a bank fee labeled as GST
+        is_bank_fee_gst = any(kw in text_lower for kw in ['micro atm', 'wdl', 'withdrawal', 'bank charge', 'service charge'])
+        
         general_tax_keywords = [
             'income tax', 'tax payment', 'irs', 'advance tax',
             'self assessment tax', 'tds payment', 'challan',
@@ -311,7 +346,7 @@ class RuleCategorizer:
         ]
         has_tax_keyword = any(kw in text_lower for kw in general_tax_keywords)
 
-        if has_gst or has_tax_keyword:
+        if (has_gst and not is_bank_fee_gst) or has_tax_keyword:
             # Determine subcategory
             if has_gst:
                 subcategory = "GST"
@@ -321,7 +356,7 @@ class RuleCategorizer:
                 subcategory = "Government Fees"
 
             return RuleMatch(
-                category="Taxes & Government",
+                category="taxes_government",
                 subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_tax"],
@@ -329,22 +364,18 @@ class RuleCategorizer:
             )
 
         # Rule 6: Insurance (life, health, vehicle, home insurance premiums)
-        insurance_keywords = [
-            'insurance premium', 'insurance payment', 'lic premium', 'lic payment',
-            'health insurance', 'life insurance', 'car insurance', 'bike insurance',
-            'motor insurance', 'term insurance', 'policy premium', 'policy payment'
-        ]
         insurance_companies = ['lic', 'hdfc life', 'icici prudential', 'sbi life', 'max life',
                               'bajaj allianz', 'star health', 'care health', 'niva bupa',
-                              'progressive insurance', 'state farm', 'allstate', 'geico',
-                              'birla sun life insurance', 'birla insurance', 'aditya birla']
+                              'progressive', 'state farm', 'allstate', 'geico',
+                              'birla sun life', 'aditya birla']
 
-        has_insurance_keyword = any(kw in text_lower for kw in insurance_keywords)
         has_insurance_company = any(company in text_lower for company in insurance_companies)
 
-        if has_insurance_keyword or (has_insurance_company and ('premium' in text_lower or 'policy' in text_lower)):
+        # Check if it's clearly an insurance transaction
+        if (has_insurance_company and 'insurance' in text_lower) or \
+           any(kw in text_lower for kw in ['insurance premium', 'car insurance', 'health insurance', 'life insurance', 'term insurance', 'vehicle insurance']):
             return RuleMatch(
-                category="Insurance",
+                category="insurance",
                 subcategory="Life Insurance" if 'life' in text_lower else "Health Insurance" if 'health' in text_lower else "Vehicle Insurance" if any(x in text_lower for x in ['car', 'bike', 'motor', 'vehicle']) else "Insurance",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_insurance"],
@@ -370,7 +401,7 @@ class RuleCategorizer:
         if has_pharmacy or has_hospital:
             subcategory = "Pharmacy" if has_pharmacy else "Doctor/Hospital"
             return RuleMatch(
-                category="Health",
+                category="health",
                 subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_health"],
@@ -386,7 +417,7 @@ class RuleCategorizer:
         if any(brand in text_lower for brand in fuel_brands) or any(kw in text_lower for kw in charging_keywords):
             subcategory = "Electric Charging" if any(kw in text_lower for kw in charging_keywords) else "Petrol/Diesel"
             return RuleMatch(
-                category="Fuel",
+                category="fuel",
                 subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_fuel"],
@@ -406,7 +437,7 @@ class RuleCategorizer:
 
             if has_fee_keyword and not has_merchant:
                 return RuleMatch(
-                    category="Fees & Charges",
+                    category="fees_charges",
                     subcategory="Bank Fees",
                     confidence=RULE_MEDIUM_CONFIDENCE,  # Slightly lower as amount-based
                     matched_rules=["deterministic_fee"],
@@ -424,7 +455,7 @@ class RuleCategorizer:
         ]
         if any(merchant in text_lower for merchant in subscription_merchants):
             return RuleMatch(
-                category="Subscriptions & Memberships",
+                category="subscriptions_memberships",
                 subcategory="Streaming/Software",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_subscription"],
@@ -440,7 +471,7 @@ class RuleCategorizer:
         # Check for direct fraud keywords (high confidence)
         if any(kw in text_lower for kw in fraud_keywords):
             return RuleMatch(
-                category="Fraud & Security",
+                category="fraud_security",
                 subcategory="Suspicious International",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_fraud"],
@@ -456,7 +487,7 @@ class RuleCategorizer:
                 # Only flag if it has "unauthorized" or similar fraud keywords
                 if any(kw in text_lower for kw in fraud_keywords):
                     return RuleMatch(
-                        category="Fraud & Security",
+                        category="fraud_security",
                         subcategory="Suspicious International",
                         confidence=RULE_HIGH_CONFIDENCE,
                         matched_rules=["deterministic_fraud"],
@@ -473,7 +504,7 @@ class RuleCategorizer:
         ]
         if any(kw in text_lower for kw in home_improvement_keywords):
             return RuleMatch(
-                category="Home Improvement",
+                category="home_improvement",
                 subcategory="Hardware/Repairs",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_home_improvement"],
@@ -490,7 +521,7 @@ class RuleCategorizer:
         ]
         if any(kw in text_lower for kw in pets_keywords):
             return RuleMatch(
-                category="Pets",
+                category="pets",
                 subcategory="Pet Care",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_pets"],
@@ -508,7 +539,7 @@ class RuleCategorizer:
         ]
         if any(kw in text_lower for kw in kids_family_keywords):
             return RuleMatch(
-                category="Kids & Family",
+                category="kids_family",
                 subcategory="Kids Products/Services",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_kids_family"],
@@ -527,7 +558,7 @@ class RuleCategorizer:
         ]
         if any(kw in text_lower for kw in electronics_keywords):
             return RuleMatch(
-                category="Electronics & Technology",
+                category="electronics_technology",
                 subcategory="Electronics/Computers",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_electronics"],
@@ -564,11 +595,25 @@ class RuleCategorizer:
 
         if has_subscription_keyword or has_subscription_pattern:
             return RuleMatch(
-                category="Subscriptions & Memberships",
+                category="subscriptions_memberships",
                 subcategory="Subscription Service",
                 confidence=RULE_MEDIUM_CONFIDENCE,
                 matched_rules=["deterministic_subscription_memberships"],
                 explanations=["subscription_membership_keyword"]
+            )
+
+        # Rule 13: Automotive (car repair, auto parts)
+        automotive_keywords = [
+            'auto parts', 'spare parts', 'car repair', 'bike repair', 'vehicle service',
+            'oil change', 'tire change', 'wheel alignment', 'car wash', 'service station'
+        ]
+        if any(kw in text_lower for kw in automotive_keywords):
+            return RuleMatch(
+                category="automotive",
+                subcategory="Auto Repairs" if 'repair' in text_lower else "Vehicle Maintenance",
+                confidence=RULE_MEDIUM_CONFIDENCE,
+                matched_rules=["deterministic_automotive"],
+                explanations=["automotive_keyword"]
             )
 
         # Strategy 1: Temporal pattern detection (boosts confidence for date-based categories)
@@ -631,7 +676,7 @@ class RuleCategorizer:
             category = self.categories[best_cat_id]
 
             return RuleMatch(
-                category=category['name'],
+                category=category['id'],
                 subcategory=self._get_best_subcategory(category, text_lower),
                 confidence=confidence,
                 matched_rules=[best_cat_id],
@@ -651,7 +696,7 @@ class RuleCategorizer:
                 category = self.categories[cat_id]
 
                 return RuleMatch(
-                    category=category['name'],
+                    category=category['id'],
                     subcategory=self._get_best_subcategory(category, merchant_lower),
                     confidence=RULE_HIGH_CONFIDENCE,  # High confidence for merchant match
                     matched_rules=[cat_id],
