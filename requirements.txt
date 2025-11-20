@@ -30,6 +30,8 @@ python-dotenv==1.0.0
 tqdm==4.66.1
 requests==2.31.0  # For LLM API calls (synchronous)
 aiohttp==3.9.1  # For async LLM API calls with parallelization
+pdfplumber==0.11.0  # For PDF bank statement parsing
+PyMuPDF==1.23.8  # Alternative PDF parser (fitz)
 
 # Testing
 pytest==7.4.3

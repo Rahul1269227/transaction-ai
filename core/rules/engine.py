@@ -126,6 +126,67 @@ class RuleCategorizer:
                 explanations=["refund_keyword"]
             )
 
+        # Rule 0.5: LOCAL SHOP PATTERNS (NEW - HIGHEST PRIORITY after refunds)
+        # Detect pan shops, tea stalls, kirana stores - check FIRST before person names
+        # These are business patterns that are more specific than person names
+        shop_patterns = {
+            'food_dining': [
+                (r'\bpan\s+shop\b', "Fast Food"),  # Pan shops
+                (r'\b(tea|chai)\s+(stall|shop|stall|corner)\b', "Cafes & Coffee"),  # Tea stalls
+                (r'\b(badnaam|badnam)\s+(chai|chay|tea)\b', "Cafes & Coffee"),  # Specific tea brands
+                (r'\b(omlet|omelette|egg)\s+shop\b', "Fast Food"),  # Omlet stalls
+                (r'\bjalpaan\s+(ghrah|ghar|shop)\b', "Restaurants"),  # Jalpaan (snacks)
+            ],
+            'groceries': [
+                (r'\bkirana\s+(store|shop)\b', "Local Stores"),  # Kirana stores
+                (r'\b(mega|super)\s+mart\b', "Supermarkets"),  # Mega marts
+                (r'\b(sangam|mega|super).*mart\b', "Supermarkets"),  # Variations of mega marts
+            ],
+            'home_improvement': [
+                (r'\bcement\s+(supplier|suppliers|shop)\b', "Home Repairs"),
+                (r'\bhardware\s+(store|shop)\b', "Home Repairs"),
+            ]
+        }
+
+        for category, patterns in shop_patterns.items():
+            for pattern, subcategory in patterns:
+                if re.search(pattern, text_lower):
+                    return RuleMatch(
+                        category=category,
+                        subcategory=subcategory,
+                        confidence=RULE_MEDIUM_CONFIDENCE,
+                        matched_rules=[f"shop_pattern_{pattern}"],
+                        explanations=[f"local_shop_pattern:{pattern}"]
+                    )
+
+        # Rule 0.6: PERSON-TO-PERSON UPI TRANSFERS (NEW - After shop patterns)
+        # Detect common Indian person names and UPI payment patterns
+        # Check AFTER shop patterns to avoid false matches like "Rakesh pan shop"
+        person_name_patterns = [
+            # Common Indian name patterns (title + name)
+            r'\b(om|ram|shyam|rajesh|suresh|mukesh|mahesh|dinesh|naresh|nilesh)\s+(yadav|kumar|singh|sharma|verma|gupta|agarwal|ji)\b',
+            # Single word person names that are clearly names not businesses (but NOT if followed by "shop", "store", etc.)
+            r'\b(vikas|rahul|aman|amit|ajay|anil|arun|akshay|akhilesh|ankit|ashok|bharat|chetan|deepak|dev|gaurav|gopal|harsh|jatin|karan|kunal|lalit|manoj|manish|mohit|neeraj|nikhil|pankaj|prashant|prateek|praveen|ravi|rohan|sachin|sanjay|sandeep|shivam|sumit|tarun|varun|vijay|vinay|vineet|vishal|yogesh)\b(?!\s+(shop|store|mart|stall))',
+            r'\b(neetu|priya|pooja|ritu|sonia|anita|asha|deepa|geeta|kavita|meera|nisha|rekha|seema|suman|sunita|usha|veena)\b(?!\s+(shop|store|mart|stall))',
+            # Honorifics + name (Officer, Shri, Smt, Mr, Mrs)
+            r'\b(officer|shri|smt|mr|mrs|ms)\s+\w+\b',
+        ]
+
+        # Check if text matches person name patterns
+        is_person_name = any(re.search(pattern, text_lower) or re.search(pattern, text) for pattern in person_name_patterns)
+
+        # Additional UPI indicators
+        has_upi_context = any(kw in text_upper for kw in ['PAID TO', 'UPI/', '@', 'UPI-'])
+
+        if is_person_name and has_upi_context:
+            return RuleMatch(
+                category="Transfers/UPI",
+                subcategory="Peer to Peer",
+                confidence=RULE_MEDIUM_CONFIDENCE,
+                matched_rules=["person_name_upi_pattern"],
+                explanations=["person_name_pattern+upi_context"]
+            )
+
         # Rule 1: ATM/Cash withdrawals
         if channel == 'ATM' or any(kw in text_upper for kw in ['ATM CASH', 'ATM WDL', 'ATM WITHDRAWAL', 'CASH WITHDRAWAL']):
             return RuleMatch(

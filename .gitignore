@@ -177,6 +177,13 @@ test_batch*.json
 test_batch*.txt
 test_batch*.jsonl
 
+# Bank statements (sensitive personal data - never commit!)
+*.pdf
+data/*.pdf
+data/**/*.pdf
+*Statement*.pdf
+*_Statement_*.pdf
+
 # LLM model files (very large)
 *.bin
 *.safetensors

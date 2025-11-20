@@ -21,7 +21,7 @@ export default function BatchUpload() {
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<BatchResult[]>([])
   const [uploadMethod, setUploadMethod] = useState<'paste' | 'file'>('paste')
-  const [detectedFormat, setDetectedFormat] = useState<'txt' | 'csv' | 'json' | null>(null)
+  const [detectedFormat, setDetectedFormat] = useState<'txt' | 'csv' | 'json' | 'pdf' | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const parseTransactions = (content: string, fileName?: string): string[] => {
@@ -118,7 +118,16 @@ export default function BatchUpload() {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
       setFile(selectedFile)
-      // Read file content
+
+      // Check if PDF file
+      if (selectedFile.name.toLowerCase().endsWith('.pdf')) {
+        setDetectedFormat('pdf')
+        console.log(`PDF file detected: ${selectedFile.name}`)
+        // PDF files will be handled by upload-pdf endpoint, not parsed client-side
+        return
+      }
+
+      // Read file content for non-PDF files
       const reader = new FileReader()
       reader.onload = (event) => {
         const content = event.target?.result as string
@@ -132,6 +141,52 @@ export default function BatchUpload() {
   }
 
   const handleBatchCategorize = async () => {
+    // Handle PDF upload separately
+    if (detectedFormat === 'pdf' && file) {
+      setLoading(true)
+      setProgress(0)
+      setResults([])
+
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+
+        console.log(`Uploading PDF: ${file.name}`)
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000) // 5 minutes
+
+        const response = await fetch('/api/upload-pdf', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+          throw new Error(errorData.detail || `Server error: ${response.status}`)
+        }
+
+        const data = await response.json()
+        console.log(`PDF processed: ${data.total} transactions, ${data.successful} successful`)
+        setResults(data.results || [])
+        setProgress(100)
+      } catch (error: any) {
+        if (error.name === 'AbortError') {
+          alert('Request timed out after 5 minutes. Please try with a smaller PDF.')
+        } else {
+          console.error('Error:', error)
+          alert('Failed to process PDF: ' + error.message)
+        }
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
+    // Handle text-based uploads
     if (!transactions.trim()) {
       alert('Please enter or upload transactions')
       return
@@ -256,7 +311,7 @@ export default function BatchUpload() {
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-bold text-slate-800 dark:text-slate-200">
-                Paste Transactions (TXT, CSV, or JSON)
+                Paste Transactions (TXT, CSV, JSON, or PDF)
               </label>
               {transactions && detectedFormat && (
                 <span className="inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800">
@@ -306,7 +361,7 @@ export default function BatchUpload() {
                 )}
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
-                Supports TXT, CSV, or JSON files
+                Supports TXT, CSV, JSON, or PDF files (including bank statements)
               </p>
               <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-slate-400">
                 <span>📄 TXT: One per line</span>
@@ -318,7 +373,7 @@ export default function BatchUpload() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".txt,.csv,.json"
+                accept=".txt,.csv,.json,.pdf"
                 onChange={handleFileChange}
                 className="hidden"
               />

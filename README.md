@@ -1,476 +1,808 @@
-# Transaction AI - Intelligent Financial Categorization
 
-**98% accurate, sub-second, privacy-first transaction categorization powered by hybrid AI ensemble**
+# 🤖 Transaction AI - Intelligent Transaction Categorization System
 
-Combines rule-based logic + ML embeddings + LLM reasoning for production-grade accuracy with zero cloud dependencies.
+> **Enterprise-grade AI system that achieves 98% accuracy in categorizing financial transactions using an ensemble of MCC codes, rules, machine learning, and LLMs.**
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
-
----
-
-## Features
-
-- **98% Accuracy**: Ensemble of Rules (88%) + ML (96%) + LLM (92%)
-- **Fast**: <900ms latency including LLM reasoning
-- **100% Offline**: No API keys, runs entirely locally
-- **18 Categories**: Food, Transport, Bills, Health, Shopping, Entertainment, etc.
-- **Auto-Learning**: Continuously improves from user feedback
-- **Fairness & Bias Evaluation**: Automated reporting on model performance across transaction amounts and categories
-- **Production-Ready**: Docker + Postgres + Redis + Prometheus monitoring
-- **Modern UI**: Next.js dashboard with batch upload support and bias reports
-
-### Latest Optimizations (v1.2)
-
-**Performance:**
-- 95% faster LLM with in-memory caching + async processing
-- 3-second LLM timeout prevents cascade failures
-- Parallel execution with graceful degradation
-
-**Accuracy & Robustness:**
-- Merchant-first strategy (≥85% confidence bypasses voting)
-- Fuzzy full-text merchant matching
-- 13,907 test samples with natural language augmentation
-- **Bias Mitigation**: New evaluation pipeline to ensure consistent performance across transaction amounts
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104-green.svg)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![LightGBM](https://img.shields.io/badge/LightGBM-4.6-orange.svg)](https://github.com/microsoft/LightGBM)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## Quick Start
+## 📋 Table of Contents
+
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Performance](#-performance)
+- [Quick Start](#-quick-start)
+- [API Endpoints](#-api-endpoints)
+- [Configuration](#-configuration)
+- [Training & Evaluation](#-training--evaluation)
+- [Monitoring](#-monitoring)
+- [Project Structure](#-project-structure)
+- [Development](#-development)
+
+---
+
+## 🎯 Overview
+
+Transaction AI is a **privacy-first, production-ready** system for automatically categorizing financial transactions with high accuracy. It combines multiple AI techniques in an intelligent ensemble to achieve **98%+ accuracy** while maintaining fast response times (~100ms in fast mode).
+
+### Why Transaction AI?
+
+- **🎯 High Accuracy**: 98.38% validation accuracy, 69.2% on real-world data
+- **🔒 Privacy-First**: 100% local processing, no cloud APIs required
+- **⚡ Fast Performance**: ~100ms latency with intelligent fast-path optimization
+- **🧠 Hybrid Intelligence**: Ensemble of MCC codes, rules, ML embeddings, and LLMs
+- **📊 Production-Ready**: Docker deployment, monitoring, health checks, auto-retraining
+- **📄 PDF Support**: Extract and categorize transactions from bank statements
+- **🔄 Active Learning**: Auto-retrains from user feedback every 50 corrections
+
+---
+
+## ✨ Key Features
+
+### 🤖 Ensemble Categorization (4 Methods)
+
+1. **MCC Classifier** (15% weight)
+   - Uses ISO 18245 merchant category codes
+   - 85-95% confidence on transactions with MCC data
+   - Instant categorization for MCC-enabled transactions
+
+2. **Rule-Based Engine** (15% weight)
+   - 90+ keyword patterns across 29 categories
+   - Regex matching for merchant names
+   - 90-98% confidence, <35ms latency
+
+3. **ML Embedding Classifier** (65% weight - highest)
+   - LightGBM model trained on 22,664+ transactions
+   - sentence-transformers embeddings (all-MiniLM-L6-v2)
+   - 96%+ accuracy with semantic understanding
+
+4. **LLM Classifier** (5% weight)
+   - Llama 3.1 8B (Ollama) or Azure GPT-4/GPT-4o
+   - Few-shot learning with 5 category examples
+   - 92% accuracy, handles edge cases
+
+### ⚡ Smart Routing
+
+- **Fast Mode**: Skips LLM when Rule + ML agree (≥90% confidence)
+  - 70% of transactions use fast path
+  - ~100ms latency vs 850ms with full ensemble
+  - Maintains 98% accuracy
+
+- **Early Exit**: High-confidence merchant/MCC matches skip ensemble entirely
+
+- **Category-Specific Thresholds**:
+  - Critical categories (Investments, Rent): 90% auto-accept
+  - Medium categories (Travel, Health): 85% auto-accept
+  - Low-risk (Food, Shopping): 80% auto-accept
+
+### 📊 29 Standardized Categories
+
+```
+food_dining          groceries           transport           travel
+bills               utilities            fuel                health
+education           shopping            entertainment        subscriptions
+income_salary       transfers_upi       investments         atm_cash
+rent                insurance           professional_services automotive
+electronics         home_improvement    pets                kids_family
+personal_care       gifts_occasions     charity_donations   taxes_government
+fees_charges        fraud_security      other
+```
+
+### 🔄 Active Learning Pipeline
+
+- User feedback stored in corrections.jsonl + database
+- Auto-retraining triggered every 50 corrections
+- Hot model reload with zero downtime
+- User-corrected categories cached for instant future lookups
+
+### 📄 PDF Bank Statement Processing
+
+- Upload PDF bank statements (PhonePe, ICICI, etc.)
+- Automatic transaction extraction using pdfplumber
+- Batch categorization of all extracted transactions
+- Supports multi-page statements (tested up to 26 pages)
+
+### 🎨 Interactive Dashboard
+
+- Single transaction categorization
+- Batch CSV/text upload (max 1000 transactions)
+- PDF bank statement upload
+- Real-time ensemble voting visualization
+- System health monitoring (7 components)
+- Performance statistics
+- User feedback submission
+
+---
+
+## 🏗️ Architecture
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     Transaction AI System                        │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │   Next.js    │  │   FastAPI    │  │  PostgreSQL  │          │
+│  │  Dashboard   │──│   REST API   │──│   Database   │          │
+│  │  (Port 3000) │  │  (Port 8000) │  │  (Port 5432) │          │
+│  └──────────────┘  └──────┬───────┘  └──────────────┘          │
+│                            │                                      │
+│                    ┌───────┴───────┐                            │
+│                    │               │                             │
+│         ┌──────────▼────┐  ┌──────▼──────┐                     │
+│         │  Redis Cache  │  │   Ollama    │                     │
+│         │  (Port 6379)  │  │ LLM Service │                     │
+│         └───────────────┘  │ (Port 11435)│                     │
+│                            └─────────────┘                      │
+│                                                                  │
+│  ┌────────────────── Ensemble Router ─────────────────┐        │
+│  │                                                      │        │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌───────┐│        │
+│  │  │   MCC   │  │  Rules  │  │   ML    │  │  LLM  ││        │
+│  │  │ (15%)   │  │  (15%)  │  │  (65%)  │  │  (5%) ││        │
+│  │  └─────────┘  └─────────┘  └─────────┘  └───────┘│        │
+│  │       ▲            ▲            ▲            ▲     │        │
+│  │       └────────────┴────────────┴────────────┘     │        │
+│  │              Weighted Voting System                │        │
+│  └──────────────────────────────────────────────────┘│        │
+│                                                         │        │
+│  ┌─────────── Monitoring Stack ──────────┐            │        │
+│  │  Prometheus (Metrics) + Grafana (Viz)  │            │        │
+│  └─────────────────────────────────────────┘           │        │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Processing Flow
+
+```
+Input Transaction
+      │
+      ▼
+┌─────────────┐
+│ Preprocessor│ ── Extract MCC, amount, date, merchant
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│ Normalizer  │ ── Clean text, resolve merchant aliases
+└──────┬──────┘
+       ▼
+┌─────────────┐
+│   Router    │ ── Fast path check (high confidence?)
+└──────┬──────┘
+       │
+       ├─── YES ──▶ Return category (< 35ms)
+       │
+       NO
+       ▼
+┌─────────────────────────────────────┐
+│        Ensemble Voting              │
+│  ┌─────┬─────┬─────┬─────┐         │
+│  │ MCC │ Rule│ ML  │ LLM │         │
+│  │ 15% │ 15% │ 65% │ 5%  │         │
+│  └─────┴─────┴─────┴─────┘         │
+│           │                         │
+│      Weighted Vote                  │
+│           │                         │
+│    ┌──────▼──────┐                 │
+│    │  Confidence │                 │
+│    │  >= 80%?    │                 │
+│    └──────┬──────┘                 │
+│           │                         │
+│      YES  │  NO                     │
+│      ▼    ▼                         │
+│   Accept  Flag for Review           │
+└─────────────────────────────────────┘
+       │
+       ▼
+   Return Result + Cache
+```
+
+---
+
+## 📊 Performance
+
+### Accuracy Metrics
+
+| Dataset | Accuracy | Samples |
+|---------|----------|---------|
+| Validation Set | **98.38%** | 5,600 |
+| Real-World (PhonePe) | 66.7% | 12 |
+| Real-World (ICICI) | 71.4% | 14 |
+| Well-Known Brands | **95%+** | - |
+
+### Latency Benchmarks
+
+| Mode | P50 | P95 | P99 | Throughput |
+|------|-----|-----|-----|------------|
+| **Fast Mode** (70% of traffic) | 100ms | 150ms | 200ms | ~70 req/s |
+| **Full Ensemble** | 850ms | 1200ms | 1500ms | ~10 req/s |
+| **Rules Only** | 35ms | 50ms | 75ms | ~1000 req/s |
+| **ML Only** | 115ms | 180ms | 250ms | ~100 req/s |
+
+### Resource Requirements
+
+- **RAM**: 16GB (8GB LLM, 4GB ML, 4GB system)
+- **Disk**: 20GB
+- **CPU**: 8 cores recommended (4 minimum)
+- **GPU**: Optional (5-10x faster LLM inference)
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Docker 20.10+ and Docker Compose 2.0+
-- 16GB RAM (8GB for LLM, 4GB for ML, 4GB system)
-- 20GB disk space
+- 16GB RAM, 20GB disk space
+- (Optional) NVIDIA GPU for faster LLM inference
 
-### Start in 3 Commands
+### 1. Clone Repository
 
 ```bash
-# 1. Clone and start services
-git clone <repo-url> && cd transaction-ai
-docker-compose -f infra/docker-compose.yaml up -d
+git clone https://github.com/yourusername/transaction-ai.git
+cd transaction-ai
+```
 
-# 2. Download LLM model (one-time, ~5GB)
-docker-compose -f infra/docker-compose.yaml --profile llm-setup run llm-loader
+### 2. Configure Environment
 
-# 3. Test it!
+```bash
+cp .env.example .env
+# Edit .env to configure database passwords, LLM provider, etc.
+```
+
+Key configurations:
+```bash
+# Database
+POSTGRES_PASSWORD=your_secure_password
+
+# LLM Provider (choose one)
+LLM_PROVIDER=ollama              # Local LLM (recommended)
+# LLM_PROVIDER=azure             # Azure OpenAI
+
+# Ensemble Weights
+MCC_WEIGHT=0.15
+RULE_WEIGHT=0.15
+ML_WEIGHT=0.65
+LLM_WEIGHT=0.05
+
+# Performance
+FAST_MODE=true
+FAST_MODE_THRESHOLD=0.90
+```
+
+### 3. Start Services
+
+#### Option A: Full Stack with LLM (Recommended)
+
+```bash
+# First time: Download LLM model (llama3.1:8b ~5GB)
+docker-compose --profile llm-setup up llm-loader
+
+# Start all services
+docker-compose --profile llm up -d
+```
+
+#### Option B: Without LLM (Faster startup, 96% accuracy)
+
+```bash
+docker-compose up -d postgres redis api ui
+```
+
+#### Option C: With Monitoring (Production)
+
+```bash
+docker-compose --profile llm --profile monitoring up -d
+```
+
+### 4. Verify Installation
+
+```bash
+# Check API health
+curl http://localhost:8000/health
+
+# Check all services
+docker-compose ps
+```
+
+### 5. Access Applications
+
+- **Dashboard UI**: http://localhost:3000
+- **API Docs**: http://localhost:8000/docs
+- **Grafana**: http://localhost:3001 (admin/admin)
+- **Prometheus**: http://localhost:9090
+
+---
+
+## 🔌 API Endpoints
+
+### Core Categorization
+
+#### Single Transaction
+
+```bash
 curl -X POST http://localhost:8000/categorize \
   -H "Content-Type: application/json" \
-  -d '{"text": "STARBUCKS COFFEE", "amount": 12.50}'
+  -d '{
+    "text": "Payment to Starbucks Coffee",
+    "amount": 5.50,
+    "currency": "USD",
+    "mcc": "5814"
+  }'
 ```
 
 **Response:**
 ```json
 {
-  "category": "Food & Dining",
+  "category": "food_dining",
+  "subcategory": "Cafes & Coffee",
   "confidence": 0.95,
-  "method": "ensemble_unanimous",
-  "requires_review": false,
+  "method": "merchant_gazetteer",
   "ensemble_votes": {
-    "rule": {"category": "Food & Dining", "confidence": 0.90},
-    "ml": {"category": "Food & Dining", "confidence": 0.94},
-    "llm": {"category": "Food & Dining", "confidence": 0.92}
+    "mcc": "food_dining",
+    "rule": "food_dining",
+    "ml": "food_dining",
+    "llm": null
+  },
+  "requires_review": false
+}
+```
+
+#### Batch Processing
+
+```bash
+curl -X POST http://localhost:8000/batch-categorize \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactions": [
+      "Netflix monthly subscription",
+      "Uber ride to airport",
+      "Whole Foods groceries"
+    ]
+  }'
+```
+
+#### PDF Bank Statement Upload
+
+```bash
+curl -X POST http://localhost:8000/upload-pdf \
+  -F "file=@bank_statement.pdf"
+```
+
+### Feedback & Learning
+
+#### Submit User Correction
+
+```bash
+curl -X POST http://localhost:8000/feedback \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transaction_text": "Payment to Netflix",
+    "predicted_category": "entertainment",
+    "correct_category": "subscriptions_memberships",
+    "was_incorrect": true
+  }'
+```
+
+#### Trigger Retraining
+
+```bash
+curl -X POST http://localhost:8000/feedback-learning
+```
+
+### Monitoring
+
+#### System Health
+
+```bash
+curl http://localhost:8000/health
+```
+
+#### Statistics
+
+```bash
+curl http://localhost:8000/stats
+```
+
+#### Prometheus Metrics
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+#### Database Configuration
+```bash
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=transactions
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_password
+```
+
+#### LLM Configuration
+
+**Ollama (Local)**
+```bash
+LLM_PROVIDER=ollama
+LLM_URL=http://llm-service:11434
+LLM_MODEL=llama3.1:8b
+LLM_TIMEOUT=120.0
+```
+
+**Azure OpenAI**
+```bash
+LLM_PROVIDER=azure
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_api_key
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_API_VERSION=2024-08-01-preview
+```
+
+#### Ensemble Configuration
+```bash
+# Weights (must sum to 1.0)
+MCC_WEIGHT=0.15
+RULE_WEIGHT=0.15
+ML_WEIGHT=0.65
+LLM_WEIGHT=0.05
+
+# Thresholds
+ML_CONFIDENCE_THRESHOLD=0.80
+RULE_CONFIDENCE_THRESHOLD=0.80
+
+# Performance
+USE_ENSEMBLE=true
+FAST_MODE=true
+FAST_MODE_THRESHOLD=0.90
+ENABLE_PARALLEL=true
+```
+
+#### Auto-Retraining
+```bash
+AUTO_RETRAIN_ENABLED=true
+AUTO_RETRAIN_THRESHOLD=50  # Retrain after 50 corrections
+```
+
+### Taxonomy Configuration
+
+Edit `data/taxonomy.yaml` to add/modify categories:
+
+```yaml
+categories:
+  - name: "Food & Dining"
+    id: "food_dining"
+    description: "Restaurants, food delivery, cafes"
+    mcc_codes:
+      - "5812"  # Restaurants
+      - "5814"  # Fast Food
+    keywords:
+      - "restaurant"
+      - "cafe"
+      - "starbucks"
+    patterns:
+      - "(?i).*restaurant.*"
+      - "(?i).*cafe.*"
+```
+
+### Merchant Gazetteer
+
+Add merchant aliases in `data/gazetteer/merchant_aliases.csv`:
+
+```csv
+merchant_id,canonical_name,aliases,category,subcategory
+1,STARBUCKS,"starbucks,starbuck,sbux",food_dining,Cafes & Coffee
+2,NETFLIX,"netflix,netflix.com",subscriptions_memberships,Streaming Services
+```
+
+---
+
+## 🎓 Training & Evaluation
+
+### Training a New Model
+
+#### Quick Training
+
+```bash
+python3 scripts/train.py
+```
+
+#### Advanced Training with Hyperparameters
+
+```bash
+python3 scripts/train_model.py \
+  --train data/train.jsonl \
+  --val data/test.jsonl \
+  --output models/transaction_classifier \
+  --n-estimators 200 \
+  --learning-rate 0.05 \
+  --max-depth 10
+```
+
+**Hyperparameters:**
+- `n_estimators`: Number of boosting rounds (default: 200)
+- `learning_rate`: Learning rate (default: 0.05)
+- `max_depth`: Maximum tree depth (default: 10)
+- `num_leaves`: Maximum number of leaves (default: 50)
+- `min_child_samples`: Minimum samples per leaf (default: 20)
+
+### Evaluation
+
+#### F1 Score Evaluation
+
+```bash
+python3 scripts/evaluate_f1.py \
+  --model models/transaction_classifier \
+  --test data/test.jsonl
+```
+
+#### Bias & Fairness Evaluation
+
+```bash
+python3 scripts/evaluate_bias.py \
+  --model models/transaction_classifier \
+  --test data/test.jsonl \
+  --output reports/bias_report.json
+```
+
+### Active Learning with User Feedback
+
+```bash
+# Retrain with user corrections
+python3 scripts/retrain_with_corrections.py \
+  --corrections data/corrections/corrections.jsonl \
+  --model-path models/transaction_classifier
+
+# Background auto-retraining
+python3 scripts/feedback_learning.py
+```
+
+---
+
+## 📊 Monitoring
+
+### Prometheus Metrics
+
+```bash
+# Access metrics endpoint
+curl http://localhost:8000/metrics
+```
+
+**Available Metrics:**
+- `categorization_requests_total` - Total requests by endpoint
+- `categorization_latency_seconds` - Latency histogram
+- `method_usage_total` - Usage by method (rule/ml/llm)
+- `categorization_requires_review_total` - Review rate
+- `categorization_cache_events_total` - Cache hit/miss
+- `ensemble_agreement_ratio` - Method agreement rate
+
+### Grafana Dashboard
+
+1. Access Grafana: http://localhost:3001
+2. Login: admin/admin
+3. Navigate to pre-configured dashboard: "Transaction AI Performance"
+
+**Dashboard Panels:**
+- Request Rate & Throughput
+- P50/P95/P99 Latency
+- Cache Hit Ratio
+- Method Distribution
+- Review Rate Trends
+- Resource Usage (CPU, Memory)
+
+### Health Monitoring
+
+```bash
+# Component-level health
+curl http://localhost:8000/health | jq
+
+# Response:
+{
+  "status": "healthy",
+  "components": {
+    "router": "healthy",
+    "normalizer": "healthy",
+    "rule_categorizer": "healthy",
+    "ml_classifier": "healthy",
+    "llm_classifier": "healthy",
+    "merchant_resolver": "healthy",
+    "database": "healthy",
+    "cache": "healthy"
   }
 }
 ```
 
-### Access Services
-
-- **API**: http://localhost:8000
-- **API Docs**: http://localhost:8000/docs
-- **Frontend UI**: Start with `cd ui && npm install && npm run dev`
-- **Monitoring**: http://localhost:3001 (Grafana)
-
 ---
 
-## How It Works
-
-### Ensemble Architecture
-
-```
-                ┌→ RULES (30%)      ─┐
-                │  Keywords, patterns │
-Transaction →   ├→ ML (40%)         ─┤→ Weighted → Final
-                │  Embeddings+LightGB │  Voting     Category
-                └→ LLM (30%)        ─┘
-                   Llama 3.1 reasoning
-```
-
-**Why Ensemble?**
-- Rules: Fast (35ms), deterministic, handles known patterns
-- ML: Learned patterns, semantic understanding, 96% accurate
-- LLM: Reasoning for edge cases, contextual understanding
-- Together: 98% accuracy, high confidence when all agree
-
-**Smart Fallback:**
-- High-confidence merchant match (≥85%)? Skip voting, return instantly
-- LLM timeout? Fall back to Rules + ML
-- Confidence <60%? Flag for human review
-
----
-
-## API Usage
-
-### Single Transaction
-
-```bash
-POST /categorize
-{
-  "text": "UPI-ZOMATO PAY*1234",
-  "amount": 249.00,
-  "date": "2025-11-13"
-}
-```
-
-### Batch Processing
-
-```bash
-POST /categorize/batch
-{
-  "transactions": [
-    {"text": "STARBUCKS", "amount": 12.50},
-    {"text": "UBER TRIP", "amount": 25.00}
-  ]
-}
-```
-
-### Submit Feedback (Auto-Learning)
-
-```bash
-POST /feedback
-{
-  "transaction_text": "LOCAL MARKET",
-  "predicted_category": "Shopping",
-  "correct_category": "Groceries"
-}
-```
-
-Feedback is automatically used to retrain models daily (configurable).
-
----
-
-## Configuration
-
-### Ensemble Weights (.env)
-
-```env
-# Balanced (default)
-RULE_WEIGHT=0.3
-ML_WEIGHT=0.4
-LLM_WEIGHT=0.3
-
-# Speed-optimized (less LLM)
-RULE_WEIGHT=0.4
-ML_WEIGHT=0.5
-LLM_WEIGHT=0.1
-
-# Accuracy-optimized (trust LLM)
-RULE_WEIGHT=0.2
-ML_WEIGHT=0.3
-LLM_WEIGHT=0.5
-```
-
-### Confidence Thresholds
-
-```env
-AUTO_ACCEPT_THRESHOLD=0.85  # Auto-accept if ≥85%
-REVIEW_THRESHOLD=0.60       # Flag for review if <60%
-LLM_TIMEOUT=3.0            # LLM timeout in seconds
-```
-
-### Performance Mode (Fast Path) ⚡
-
-**NEW**: Skip LLM when rule+ML agree with high confidence - reduces latency from ~850ms to ~100ms for 70% of transactions!
-
-```env
-FAST_MODE=true              # Enable fast mode (default: false)
-FAST_MODE_THRESHOLD=0.90    # Confidence threshold for skipping LLM (default: 0.90)
-```
-
-**How it works:**
-- Runs rule and ML categorizers first (~100ms)
-- If they agree on the same category with confidence ≥90%, skips LLM call
-- Falls back to full ensemble (with LLM) only when needed
-- Expected: 70% of transactions use fast path, 30% use full ensemble
-
-**Performance Impact:**
-- Fast path: ~100ms (rule + ML only)
-- Full ensemble: ~850ms (rule + ML + LLM)
-- Overall: ~70% faster average latency
-
-### Disable LLM (ML-only mode)
-
-```env
-USE_ENSEMBLE=false
-```
-
----
-
-## Local Development
-
-### Prerequisites
-
-- Python 3.9+
-- [Ollama](https://ollama.ai/) installed locally
-
-### Setup
-
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
-
-# 2. Start Ollama and pull model
-ollama serve
-ollama pull llama3.1:8b
-
-# 3. Train ML model (pre-balanced data included)
-python scripts/train_model.py \
-  --train data/balanced/train.jsonl \
-  --val data/balanced/test.jsonl \
-  --output models/classifier \
-  --n-estimators 300 \
-  --learning-rate 0.05
-
-# 4. Start API
-cd apps/api && python main.py
-```
-
-**Training Data Included:**
-- `data/balanced/train.jsonl` - 48,493 balanced samples
-- `data/balanced/test.jsonl` - 13,907 test samples
-- `data/balanced/class_weights.json` - Pre-computed weights
-
----
-
-## Monitoring & Observability
-
-### Enable Metrics
-
-```env
-PROMETHEUS_ENABLED=true
-```
-
-### Start Monitoring Stack
-
-```bash
-./start-monitoring.sh
-
-# Or manually
-docker-compose -f docker-compose.monitoring.yml up -d
-```
-
-**Access:**
-- Grafana: http://localhost:3001 (admin/admin)
-- Prometheus: http://localhost:9090
-
-**Pre-configured Dashboards:**
-- Request rate & latency (p50, p95, p99)
-- Ensemble agreement ratios
-- Cache hit/miss rates
-- Resource usage (CPU, memory)
-- 9 production alerts
-
----
-
-## Performance Benchmarks
-
-| Metric | Ensemble | Fast Mode | ML-Only | Rules-Only |
-|--------|----------|-----------|---------|------------|
-| Accuracy | **98%** | **98%** | 96% | 88% |
-| P50 Latency | **850ms** | **~100ms** | 115ms | 35ms |
-| Throughput | 10 req/s | **~70 req/s** | 100 req/s | 1000 req/s |
-| Memory | 11GB | 11GB | 2GB | 100MB |
-| Fast Path Usage | N/A | **~70%** | N/A | N/A |
-
-*Tested on: 16GB RAM, 8-core CPU, macOS ARM64*
-
-**Fast Mode Benefits:**
-- 70% of transactions skip LLM (when rule+ML agree ≥90%)
-- Average latency reduced from 850ms to ~300ms
-- Maintains 98% accuracy (LLM only used when needed)
-
----
-
-## Testing
-
-### Automated System Tests
-
-```bash
-./test-system.sh
-```
-
-Tests API endpoints, batch processing, monitoring, and UI.
-
-### Unit Tests
-
-```bash
-pytest
-```
-
-### Performance Testing
-
-```bash
-python scripts/test_ensemble_performance.py
-```
-
-### Bias Evaluation (New)
-
-```bash
-python scripts/evaluate_bias.py --model models/transaction_classifier --test data/balanced/test.jsonl
-```
-
-Generates a fairness report in `reports/bias_report.md`.
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 transaction-ai/
-├── apps/api/main.py           # FastAPI application
+├── apps/
+│   └── api/
+│       └── main.py              # FastAPI application (1,480 lines)
 ├── core/
 │   ├── model/
-│   │   ├── classifier.py      # ML embedding classifier
-│   │   ├── llm_classifier.py  # LLM with caching & async
-│   │   └── ensemble_router.py # Ensemble voting logic
-│   ├── rules/engine.py        # Rule-based categorizer
-│   ├── resolve/resolver.py    # Merchant fuzzy matching
-│   ├── normalize/normalizer.py # Text preprocessing
+│   │   ├── ensemble_router.py   # Ensemble voting system
+│   │   ├── llm_classifier.py    # LLM categorization
+│   │   ├── classifier.py        # ML classifier
+│   │   ├── mcc_classifier.py    # MCC code classifier
+│   │   └── router.py            # Hybrid router
+│   ├── rules/
+│   │   └── engine.py            # Rule-based categorization
+│   ├── normalize/
+│   │   └── normalizer.py        # Text normalization
+│   ├── resolve/
+│   │   └── resolver.py          # Merchant resolution
+│   ├── parsers/
+│   │   └── pdf_parser.py        # PDF bank statement parser
+│   └── models.py                # Pydantic models
 ├── data/
-│   ├── taxonomy.yaml          # 18 category definitions
-│   ├── gazetteer/merchant_aliases.csv # 90+ merchants
-│   └── balanced/              # Training data (included)
+│   ├── taxonomy.yaml            # 29 category definitions
+│   ├── gazetteer/
+│   │   └── merchant_aliases.csv # Merchant aliases (353+)
+│   ├── train.jsonl              # Training data (22,664)
+│   ├── test.jsonl               # Test data (5,600)
+│   └── corrections/
+│       └── corrections.jsonl    # User feedback
 ├── scripts/
-│   ├── train_model.py         # ML training
-│   ├── feedback_learning.py   # Auto-retraining
-│   └── evaluate_bias.py       # Fairness evaluation
-├── infra/docker-compose.yaml  # Production deployment
-└── ui/                        # Next.js dashboard
+│   ├── train.py                 # Training script
+│   ├── evaluate_f1.py           # F1 evaluation
+│   ├── evaluate_bias.py         # Fairness evaluation
+│   └── feedback_learning.py     # Auto-retraining
+├── ui/                          # Next.js dashboard
+│   ├── app/
+│   ├── components/
+│   └── package.json
+├── infra/
+│   ├── docker-compose.yaml      # Multi-container orchestration
+│   └── Dockerfile               # API container
+├── monitoring/
+│   ├── prometheus.yml           # Metrics config
+│   ├── grafana-dashboard.json   # Pre-built dashboard
+│   └── alerts.yml               # Alert rules
+├── tests/                       # Test suite (15+ files)
+├── models/                      # Trained models
+├── docs/                        # Documentation
+├── requirements.txt             # Python dependencies
+├── .env.example                 # Environment template
+└── README.md                    # This file
 ```
 
 ---
 
-## Security & Privacy
+## 🛠️ Development
 
-- **100% Local**: All processing on your infrastructure
-- **No Cloud APIs**: Zero external API calls
-- **Transaction Data**: Never logged unless you configure DB
-- **Models**: Downloaded once, cached locally
-
-### Production Checklist
-
-- [ ] Change default DB password
-- [ ] Enable HTTPS (nginx reverse proxy)
-- [ ] Configure CORS
-- [ ] Set up database backups
-- [ ] Enable monitoring & alerts
-- [ ] Review rate limits
-
----
-
-## Troubleshooting
-
-### LLM Service Won't Start
+### Setup Development Environment
 
 ```bash
-# Check logs
-docker-compose -f infra/docker-compose.yaml logs llm-service
+# Clone repository
+git clone https://github.com/yourusername/transaction-ai.git
+cd transaction-ai
 
-# Verify memory (needs 8GB)
-docker stats
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# Pull model manually
-docker exec -it txn-llm ollama pull llama3.1:8b
+# Install dependencies
+pip install -r requirements.txt
+
+# Install UI dependencies
+cd ui && npm install && cd ..
 ```
 
-### Out of Memory
+### Run Services Locally
 
 ```bash
-# Use smaller model
-docker exec txn-llm ollama pull phi-3:mini
+# Terminal 1: Start database & cache
+docker-compose up -d postgres redis
 
-# Update .env
-LLM_MODEL=phi-3:mini
+# Terminal 2: Start API
+MODEL_PATH=models/transaction_classifier \
+python3 -m uvicorn apps.api.main:app --reload --port 8000
 
-# Or disable LLM
-USE_ENSEMBLE=false
+# Terminal 3: Start UI
+cd ui && npm run dev
 ```
 
-### Slow LLM Inference
-
-1. Use GPU (5-10x faster) - see Docker GPU setup
-2. Lower LLM_WEIGHT to 0.1
-3. Use smaller model: `phi-3:mini`
-4. Reduce LLM_TIMEOUT to 2.0
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/name`
-3. Make changes and test: `pytest && ./test-system.sh`
-4. Commit: `git commit -m 'Add feature'`
-5. Push and open Pull Request
-
-### Development
+### Run Tests
 
 ```bash
-# Format code
-black core/ apps/ scripts/
-isort core/ apps/ scripts/
+# All tests
+pytest
 
-# Lint
-flake8 core/ apps/ scripts/
+# Specific test file
+pytest tests/test_ensemble_router.py
+
+# With coverage
+pytest --cov=core --cov-report=html
 ```
 
 ---
 
-## License
+## 🤝 Contributing
 
-MIT License - see [LICENSE](LICENSE)
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Adding New Categories
+
+1. Edit `data/taxonomy.yaml`:
+```yaml
+- name: "New Category"
+  id: "new_category"
+  description: "Description"
+  keywords: ["keyword1", "keyword2"]
+  patterns: ["(?i)pattern.*"]
+```
+
+2. Add training examples to `data/train.jsonl`:
+```json
+{"text": "Example transaction", "label": "new_category"}
+```
+
+3. Retrain model:
+```bash
+python3 scripts/train.py
+```
+
+### Adding Merchant Aliases
+
+Edit `data/gazetteer/merchant_aliases.csv`:
+```csv
+100,NEW_MERCHANT,"merchant,alias1,alias2",category,subcategory
+```
+
+Reload API to apply changes.
 
 ---
 
-## Acknowledgments
+## 📄 License
 
-- **Ollama** - Local LLM runtime
-- **Llama 3.1** - Meta's open-source LLM
-- **sentence-transformers** - Embedding models
-- **LightGBM** - Gradient boosting framework
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **LightGBM** - Microsoft's gradient boosting framework
+- **sentence-transformers** - Hugging Face semantic embeddings
+- **Ollama** - Local LLM inference
 - **FastAPI** - Modern Python web framework
+- **Next.js** - React framework for production
 
 ---
 
-## Roadmap
+## 📞 Support
 
-### v1.2 (Current)
-- [x] Ensemble voting system
-- [x] LLM caching & async processing
-- [x] Merchant-first strategy
-- [x] Expanded test dataset (13,907 samples)
-- [x] Next.js UI with batch upload
-- [x] Prometheus + Grafana monitoring
-- [x] Auto-learning from feedback
-- [x] **Performance Mode (Fast Path)** - Skip LLM when rule+ML agree
-- [x] Fairness & Bias Evaluation Reports
-- [x] Explainability Dashboard UI
+- **Documentation**: [docs/](docs/)
+- **Issues**: GitHub Issues
+- **Real-World Testing**: See [REAL_WORLD_TEST_RESULTS.md](REAL_WORLD_TEST_RESULTS.md)
 
-### v1.3 (Next)
-- [ ] Fine-tune LLM on real data
-- [ ] Active learning pipeline
-- [ ] Multi-currency support
-- [ ] REST API authentication
+---
 
-### v2.0 (Future)
-- [ ] Real-time streaming (Kafka)
+## 🗺️ Roadmap
+
+- [ ] Mobile app (React Native)
+- [ ] Real-time transaction streaming
 - [ ] Multi-language support
-- [ ] Advanced fraud detection
-- [ ] Mobile app integration
+- [ ] Custom category training UI
+- [ ] Fraud detection integration
+- [ ] Export to accounting software (QuickBooks, Xero)
+- [ ] Smart budgeting recommendations
+- [ ] Transaction deduplication
 
 ---
 
-**Built with ❤️ for accurate, fast, and privacy-preserving transaction categorization**
-
-*Powered by Rules + ML + LLM Ensemble*
+**Built with ❤️ for accurate, private, and intelligent transaction categorization**
