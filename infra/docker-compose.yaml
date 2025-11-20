@@ -116,13 +116,13 @@ services:
       - LLM_URL=http://llm-service:11434
       - LLM_MODEL=${LLM_MODEL:-llama3.1:8b}
       - LLM_TIMEOUT=${LLM_TIMEOUT:-50}
-      # Ensemble Weights (hardcoded for now)
-      - MCC_WEIGHT=0.20
-      - RULE_WEIGHT=0.20
-      - ML_WEIGHT=0.60
-      - LLM_WEIGHT=0.00
-      - ML_CONFIDENCE_THRESHOLD=0.95
-      - RULE_CONFIDENCE_THRESHOLD=0.95
+      # Ensemble Weights (LLM enabled for maximum accuracy)
+      - MCC_WEIGHT=${MCC_WEIGHT:-0.15}
+      - RULE_WEIGHT=${RULE_WEIGHT:-0.15}
+      - ML_WEIGHT=${ML_WEIGHT:-0.40}
+      - LLM_WEIGHT=${LLM_WEIGHT:-0.30}
+      - ML_CONFIDENCE_THRESHOLD=${ML_CONFIDENCE_THRESHOLD:-0.80}
+      - RULE_CONFIDENCE_THRESHOLD=${RULE_CONFIDENCE_THRESHOLD:-0.80}
       # Ensemble configuration
       - USE_ENSEMBLE=${USE_ENSEMBLE:-true}
       - FAST_MODE=${FAST_MODE:-true}
