@@ -1,0 +1,177 @@
+{
+  "metadata": {
+    "timestamp": "2025-11-20 16:04:25",
+    "dataset": "data/test.jsonl (first 50)",
+    "model": "Ensemble (Rule + Gazetteer + ML, no LLM)",
+    "total_transactions": 44
+  },
+  "summary": {
+    "accuracy": 0.7272727272727273,
+    "correct": 32,
+    "total": 44,
+    "duration_s": 45.976343631744385,
+    "avg_latency_ms": 1044.9169007214634
+  },
+  "results": [
+    {
+      "text": "fdrlindforsecurepayment",
+      "expected": "investments",
+      "predicted": "investments",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "Icloud subscription",
+      "expected": "subscriptions_memberships",
+      "predicted": "subscriptions_memberships",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "School Fee",
+      "expected": "education",
+      "predicted": "education",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "RITE AID #4171",
+      "expected": "health",
+      "predicted": "health",
+      "confidence": 0.7846597693592147,
+      "method": "ensemble_rule+ml+llm",
+      "correct": true
+    },
+    {
+      "text": "REGAL CINEMAS",
+      "expected": "entertainment",
+      "predicted": "entertainment",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "Gift purchase Voucher",
+      "expected": "gifts_occasions",
+      "predicted": "gifts_occasions",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "SHELL PETROL",
+      "expected": "fuel",
+      "predicted": "fuel",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "MyFlowerTree Gift Voucher",
+      "expected": "gifts_occasions",
+      "predicted": "gifts_occasions",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "PROGRESSIVE INSURANCE",
+      "expected": "insurance",
+      "predicted": "investments",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": false
+    },
+    {
+      "text": "PIZZAHUT #2783",
+      "expected": "food_dining",
+      "predicted": "food_dining",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "Vet appointment Pet Care",
+      "expected": "pets",
+      "predicted": "pets",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "PET CARE - PAYMENT",
+      "expected": "pets",
+      "predicted": "pets",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "DONATION CROWDFUNDING",
+      "expected": "charity_donations",
+      "predicted": "charity_donations",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "NEFT - Temple",
+      "expected": "charity_donations",
+      "predicted": "transfers_upi",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": false
+    },
+    {
+      "text": "payment to professional fee 16/6",
+      "expected": "professional_services",
+      "predicted": "professional_services",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "FORTIS HEALTHCARE medicines",
+      "expected": "health",
+      "predicted": "health",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "Property Tax",
+      "expected": "taxes_government",
+      "predicted": "taxes_government",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "WSSONOMA*",
+      "expected": "home_improvement",
+      "predicted": "shopping",
+      "confidence": 0.05,
+      "method": "ensemble_rule+ml+llm",
+      "correct": false
+    },
+    {
+      "text": "IOCL FUEL STATION",
+      "expected": "fuel",
+      "predicted": "fuel",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": true
+    },
+    {
+      "text": "AEPS GST INC DT 06-01-201",
+      "expected": "taxes_government",
+      "predicted": "fees_charges",
+      "confidence": 0.95,
+      "method": "rule_deterministic",
+      "correct": false
+    }
+  ]
+}
