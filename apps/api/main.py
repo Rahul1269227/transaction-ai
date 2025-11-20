@@ -144,7 +144,7 @@ ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.30"))
 LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.20"))
 LLM_URL = os.getenv("LLM_URL", "http://llm-service:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
-LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "30.0"))  # 30-second timeout for LLM inference
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "50.0"))  # 50-second timeout for LLM inference (first call loads model)
 USE_ENSEMBLE = bool_from_env("USE_ENSEMBLE", False)
 FAST_MODE = bool_from_env("FAST_MODE", False)  # Skip LLM when rule+ML agree with high confidence
 FAST_MODE_THRESHOLD = float(os.getenv("FAST_MODE_THRESHOLD", "0.90"))  # Confidence threshold for fast mode
@@ -987,7 +987,8 @@ async def submit_feedback(feedback: FeedbackInput):
                         logger.info(f"Stored transaction from feedback: {transaction_record.id}")
 
                         # Cache the user-confirmed categorization for future identical transactions
-                        if was_correct and redis_client:
+                        # Cache both corrections AND confirmations to learn from user feedback
+                        if redis_client:
                             try:
                                 # Build cache key for this transaction
                                 cache_key_input = TransactionInput(

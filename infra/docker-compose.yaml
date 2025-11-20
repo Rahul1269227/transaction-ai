@@ -115,7 +115,7 @@ services:
       # Ollama Configuration (fallback)
       - LLM_URL=http://llm-service:11434
       - LLM_MODEL=${LLM_MODEL:-llama3.1:8b}
-      - LLM_TIMEOUT=${LLM_TIMEOUT:-120}
+      - LLM_TIMEOUT=${LLM_TIMEOUT:-50}
       # Ensemble Weights (hardcoded for now)
       - MCC_WEIGHT=0.15
       - RULE_WEIGHT=0.15
@@ -158,7 +158,7 @@ services:
       - LLM_TOP_P=${LLM_TOP_P:-0.95}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-500}
       - LLM_NUM_THREADS=${LLM_NUM_THREADS:-4}
-      - LLM_REQUEST_TIMEOUT=${LLM_REQUEST_TIMEOUT:-120}
+      - LLM_REQUEST_TIMEOUT=${LLM_REQUEST_TIMEOUT:-50}
       - LLM_FEW_SHOT_LIMIT=${LLM_FEW_SHOT_LIMIT:-5}
       - LLM_MAX_CONCURRENT=${LLM_MAX_CONCURRENT:-4}
       - LLM_HEALTH_CHECK_TIMEOUT=${LLM_HEALTH_CHECK_TIMEOUT:-5}

@@ -116,7 +116,7 @@ class EnsembleRouter:
         auto_accept_threshold: float = 0.85,
         review_threshold: float = 0.60,
         enable_parallel: bool = True,
-        llm_timeout: float = 120.0,  # 120-second timeout for LLM (allows time for inference + parallelization)
+        llm_timeout: float = 50.0,  # 50-second timeout for LLM (allows time for model loading + inference)
         fast_mode: bool = False,  # Skip LLM when rule+ML agree with high confidence
         fast_mode_threshold: float = 0.90,  # Confidence threshold for fast mode (rule+ML agreement)
         use_category_thresholds: bool = True  # Use category-specific thresholds
@@ -138,7 +138,7 @@ class EnsembleRouter:
             auto_accept_threshold: Confidence threshold for auto-accept
             review_threshold: Confidence threshold for human review
             enable_parallel: Run methods in parallel (faster)
-            llm_timeout: Timeout for LLM requests in seconds (default: 120.0)
+            llm_timeout: Timeout for LLM requests in seconds (default: 50.0)
             fast_mode: Skip LLM when rule+ML agree with high confidence (default: False)
             fast_mode_threshold: Confidence threshold for fast mode (default: 0.90)
         """
