@@ -36,22 +36,21 @@ scrape_configs:
           service: 'transaction-ai-api'
           component: 'backend'
 
-  # Node Exporter for system metrics
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-        labels:
-          service: 'node-exporter'
-          component: 'infrastructure'
+  # Node Exporter for system metrics (optional - uncomment to enable)
+  # - job_name: 'node-exporter'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']
+  #       labels:
+  #         service: 'node-exporter'
+  #         component: 'infrastructure'
 
-  # Optional: Add LLM service monitoring if available
-  - job_name: 'llm-service'
-    scrape_interval: 30s
-    static_configs:
-      - targets: ['llm-service:11434']
-        labels:
-          service: 'llm-service'
-          component: 'ml'
-    # This job may fail if LLM service doesn't expose metrics
-    metrics_path: '/metrics'
-    scheme: http
+  # LLM service monitoring (optional - Ollama doesn't expose metrics by default)
+  # - job_name: 'llm-service'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets: ['llm-service:11434']
+  #       labels:
+  #         service: 'llm-service'
+  #         component: 'ml'
+  #   metrics_path: '/metrics'
+  #   scheme: http

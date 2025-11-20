@@ -314,9 +314,9 @@ docker-compose ps
 
 ### 5. Access Applications
 
-- **Dashboard UI**: http://localhost:3000
+- **Dashboard UI**: http://localhost:3001
 - **API Docs**: http://localhost:8000/docs
-- **Grafana**: http://localhost:3001 (admin/admin)
+- **Grafana**: http://localhost:4000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 
 ---
@@ -590,7 +590,7 @@ curl http://localhost:8000/metrics
 
 ### Grafana Dashboard
 
-1. Access Grafana: http://localhost:3001
+1. Access Grafana: http://localhost:4000
 2. Login: admin/admin
 3. Navigate to pre-configured dashboard: "Transaction AI Performance"
 
