@@ -352,3 +352,15 @@ merchant_id,canonical_name,aliases,category,subcategory
 351,GOOGLE_INDIA,"google india,google ind,google.in",subscriptions_memberships,Cloud Storage
 352,CRED_BILLS,"cred,cred.club,cred pay,cred app",bills,Credit Card Bills
 353,PERSON_NAMES_UPI,"om yadav,vikas,neetu,rahul,aman,priya,shivam,manish,ajay,akshay",transfers_upi,Peer to Peer
+355,CHEVRON,"chevron,chevron gas,chevron station,chevron*",fuel,Petrol/Diesel
+356,LYFT,"lyft,lyft ride,lyft*",transport,Cab Services
+357,GRUBHUB,"grubhub,grub hub,grubhub*",food_dining,Food Delivery
+358,CHEESECAKE_FACTORY,"cheesecake factory,the cheesecake factory,cheesecake*",food_dining,Restaurants
+359,ATT,"at&t,att,at & t,att*,at&t*",bills,Telecom
+360,VERIZON,"verizon,verizon wireless,vzw,verizon*",bills,Telecom
+361,COMCAST,"comcast,comcast cable,xfinity,comcast*",bills,Telecom
+362,GYM_24HOUR,"24 hour fitness,24hr fitness,24 hour,24hour*",personal_care,Fitness
+363,DENTAL_ASSOCIATES,"dental associates,dental,dentist",health,Dental
+364,EXXON,"exxon,exxon mobil,exxonmobil,exxon*",fuel,Petrol/Diesel
+365,MOBIL,"mobil,mobil gas,mobil*",fuel,Petrol/Diesel
+366,BP,"bp,bp gas,bp station,bp*",fuel,Petrol/Diesel

@@ -4,7 +4,7 @@ services:
     image: postgres:16-alpine
     container_name: ${POSTGRES_CONTAINER:-txn-postgres}
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-transactions}
+      POSTGRES_DB: ${POSTGRES_DB:-txn_user}
       POSTGRES_USER: ${POSTGRES_USER:-txn_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-txn_password}
     ports:
@@ -13,7 +13,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-transactions}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-txn_user} -d ${POSTGRES_DB:-txn_user}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -94,9 +94,8 @@ services:
     ports:
       - "${API_EXTERNAL_PORT:-8000}:${API_PORT:-8000}"
     environment:
-      # Database connection for Docker network (always use 5432 internally)
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-txn_user}:${POSTGRES_PASSWORD:-txn_password}@postgres:5432/${POSTGRES_DB:-transactions}
-      # Redis connection for Docker network (always use 6379 internally)
+      # CRITICAL: These DATABASE/REDIS URLs MUST override the .env file values for Docker networking
+      - DATABASE_URL=postgresql://txn_user:txn_password@postgres:5432/txn_user
       - REDIS_URL=redis://redis:6379/0
       # Application paths inside container
       - TAXONOMY_PATH=/app/${TAXONOMY_PATH:-data/taxonomy.yaml}

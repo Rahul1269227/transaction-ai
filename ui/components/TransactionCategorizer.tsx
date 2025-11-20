@@ -60,12 +60,21 @@ export default function TransactionCategorizer() {
       })
 
       clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }))
+        throw new Error(errorData.message || errorData.detail || `Server error: ${response.status}`)
+      }
+
       const data = await response.json()
       setResult(data)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error)
       if (error.name === 'AbortError') {
         alert('Request timed out. The LLM might be taking too long to respond.')
+      } else {
+        const errorMessage = error.message || 'Failed to categorize transaction. Please try again.'
+        alert(`Error: ${errorMessage}`)
       }
     } finally {
       setLoading(false)

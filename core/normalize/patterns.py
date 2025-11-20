@@ -209,6 +209,22 @@ class TransactionPatterns:
             if match:
                 return match.group(1).strip()
 
+        # FALLBACK: If no channel and no merchant pattern, use the whole text as merchant
+        # This allows the MerchantResolver to fuzzy-match against the gazetteer
+        # Remove common noise like transaction IDs, dates, amounts
+        cleaned = text
+        # Remove trailing/leading numbers and special chars
+        cleaned = re.sub(r'^\W+|\W+$', '', cleaned)
+        # Remove reference numbers (long digit sequences)
+        cleaned = re.sub(r'\s+\d{6,}.*$', '', cleaned)
+        # Remove transaction type keywords if they appear alone
+        cleaned = re.sub(r'\b(transaction|payment|purchase|order|bill)\b', '', cleaned, flags=re.IGNORECASE)
+        cleaned = cleaned.strip()
+
+        # Only return if we have something meaningful (at least 3 chars)
+        if len(cleaned) >= 3:
+            return cleaned
+
         return None
 
     @classmethod
