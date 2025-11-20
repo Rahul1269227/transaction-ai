@@ -417,6 +417,8 @@ def init_database() -> None:
     try:
         db_engine = create_engine(DATABASE_URL, pool_pre_ping=True)
         SessionLocal = sessionmaker(bind=db_engine, autocommit=False, autoflush=False)
+        # Ensure required tables exist before serving traffic
+        Base.metadata.create_all(db_engine)
         logger.info("Database engine initialized")
     except Exception as exc:
         logger.warning(f"Failed to initialize database: {exc}")
@@ -792,12 +794,13 @@ async def categorize_transaction(transaction: TransactionInput):
     try:
         # Categorize - router.categorize() handles normalization internally and returns it
         # This avoids duplicate normalization work (50% performance improvement)
+        # Note: Only pass merchant if extracted from JSON, otherwise let router extract it from text
         result = router.categorize(
             text=processed_text,
             amount=final_amount,
             date=final_date,
             currency=final_currency,
-            merchant=final_merchant,
+            merchant=final_merchant if final_merchant else None,  # Don't pass empty string
             mcc=final_mcc,
         )
 
