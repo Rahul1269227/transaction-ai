@@ -20,7 +20,7 @@ This guide explains how to configure the Transaction AI system using environment
    cd infra && docker-compose up -d
 
    # Without Docker (local development)
-   export MODEL_PATH=models/transaction_classifier_balanced_final
+   export MODEL_PATH=models/transaction_classifier
    python3 -m uvicorn apps.api.main:app --reload
    ```
 
@@ -61,12 +61,12 @@ CACHE_TTL=600  # seconds
 ```env
 TAXONOMY_PATH=data/taxonomy.yaml
 GAZETTEER_PATH=data/gazetteer/merchant_aliases.csv
-MODEL_PATH=models/transaction_classifier_balanced_final
+MODEL_PATH=models/transaction_classifier
 FEW_SHOT_EXAMPLES_PATH=data/few_shot_examples.jsonl
 ```
 
 **Available Models:**
-- `models/transaction_classifier_balanced_final` (recommended) - Best overall performance
+- `models/transaction_classifier` (recommended) - Best overall performance
 - `models/transaction_classifier` - Standard model
 - Custom trained models in `models/` directory
 

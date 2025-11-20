@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { TrendingUp, Clock, CheckCircle, AlertCircle } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
 
@@ -11,6 +11,28 @@ export default function StatsCards() {
     accuracy: 0,
     reviewRate: 0
   })
+  const [changes, setChanges] = useState({
+    totalProcessed: '0%',
+    avgLatency: '0%',
+    accuracy: '0%',
+    reviewRate: '0%'
+  })
+  const prevStatsRef = useRef<typeof stats | null>(null)
+
+  const formatChange = (current: number, previous?: number | null) => {
+    if (previous === undefined || previous === null) {
+      return '0%'
+    }
+    if (previous === 0) {
+      return current === 0 ? '0%' : '+100%'
+    }
+    const delta = ((current - previous) / previous) * 100
+    if (!isFinite(delta)) {
+      return '0%'
+    }
+    const formatted = Math.abs(delta) >= 10 ? delta.toFixed(0) : delta.toFixed(1)
+    return `${delta >= 0 ? '+' : ''}${formatted}%`
+  }
 
   useEffect(() => {
     // Fetch live stats from API
@@ -19,12 +41,31 @@ export default function StatsCards() {
         const response = await fetch(API_ENDPOINTS.stats)
         if (response.ok) {
           const data = await response.json()
-          setStats({
+          const nextStats = {
             totalProcessed: data.total_processed || 0,
             avgLatency: Math.round(data.avg_latency_ms || 0),
-            accuracy: parseFloat((data.accuracy * 100).toFixed(1)) || 0,
-            reviewRate: parseFloat((data.review_rate * 100).toFixed(1)) || 0
+            accuracy: typeof data.accuracy === 'number'
+              ? parseFloat((data.accuracy * 100).toFixed(1))
+              : 0,
+            reviewRate: typeof data.review_rate === 'number'
+              ? parseFloat((data.review_rate * 100).toFixed(1))
+              : 0
+          }
+
+          const prevStats = prevStatsRef.current
+          if (prevStats) {
+            setChanges({
+              totalProcessed: formatChange(nextStats.totalProcessed, prevStats.totalProcessed),
+              avgLatency: formatChange(nextStats.avgLatency, prevStats.avgLatency),
+              accuracy: formatChange(nextStats.accuracy, prevStats.accuracy),
+              reviewRate: formatChange(nextStats.reviewRate, prevStats.reviewRate)
+            })
+          }
+
+          setStats({
+            ...nextStats
           })
+          prevStatsRef.current = nextStats
         }
       } catch (error) {
         console.error('Failed to fetch stats:', error)
@@ -47,7 +88,7 @@ export default function StatsCards() {
       suffix: '',
       icon: TrendingUp,
       color: 'blue',
-      change: '+12%'
+      change: changes.totalProcessed
     },
     {
       title: 'Avg Latency',
@@ -55,7 +96,7 @@ export default function StatsCards() {
       suffix: 'ms',
       icon: Clock,
       color: 'green',
-      change: '-5%'
+      change: changes.avgLatency
     },
     {
       title: 'Accuracy',
@@ -63,7 +104,7 @@ export default function StatsCards() {
       suffix: '%',
       icon: CheckCircle,
       color: 'purple',
-      change: '+2.3%'
+      change: changes.accuracy
     },
     {
       title: 'Review Rate',
@@ -71,7 +112,7 @@ export default function StatsCards() {
       suffix: '%',
       icon: AlertCircle,
       color: 'amber',
-      change: '0%'
+      change: changes.reviewRate
     },
   ]
 

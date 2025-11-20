@@ -29,7 +29,7 @@ def test_subscription_categorization():
     router = EnsembleRouter(
         taxonomy_path="data/taxonomy.yaml",
         gazetteer_path="data/gazetteer/merchant_aliases.csv",
-        ml_model_path="models/transaction_classifier_balanced_final"
+        ml_model_path="models/transaction_classifier"
     )
 
     test_cases = [
@@ -195,7 +195,7 @@ def test_category_specific_thresholds():
     router = EnsembleRouter(
         taxonomy_path="data/taxonomy.yaml",
         gazetteer_path="data/gazetteer/merchant_aliases.csv",
-        ml_model_path="models/transaction_classifier_balanced_final",
+        ml_model_path="models/transaction_classifier",
         use_category_thresholds=True
     )
 
@@ -233,7 +233,7 @@ def test_ambiguity_scoring():
     router = EnsembleRouter(
         taxonomy_path="data/taxonomy.yaml",
         gazetteer_path="data/gazetteer/merchant_aliases.csv",
-        ml_model_path="models/transaction_classifier_balanced_final"
+        ml_model_path="models/transaction_classifier"
     )
 
     test_cases = [

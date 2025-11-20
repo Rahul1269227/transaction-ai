@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Activity, TrendingUp, Zap, Database, Brain, CheckCircle2, AlertCircle, Upload } from 'lucide-react'
+import { Activity, TrendingUp, Zap, Database, Brain, CheckCircle2, AlertCircle, Upload, FileText } from 'lucide-react'
 import TransactionCategorizer from '@/components/TransactionCategorizer'
 import EnsembleVoting from '@/components/EnsembleVoting'
 import HealthDashboard from '@/components/HealthDashboard'
 import FeedbackForm from '@/components/FeedbackForm'
 import StatsCards from '@/components/StatsCards'
 import BatchUpload from '@/components/BatchUpload'
+import ReportsViewer from '@/components/ReportsViewer'
 
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('demo')
@@ -58,6 +59,7 @@ export default function Dashboard() {
                 { id: 'demo', name: 'Categorize', icon: Zap },
                 { id: 'batch', name: 'Batch Upload', icon: Upload },
                 { id: 'ensemble', name: 'Ensemble Voting', icon: TrendingUp },
+                { id: 'reports', name: 'Reports', icon: FileText },
                 { id: 'health', name: 'System Health', icon: Activity },
                 { id: 'feedback', name: 'Feedback', icon: CheckCircle2 },
               ].map((tab) => (
@@ -88,6 +90,7 @@ export default function Dashboard() {
             {activeTab === 'demo' && <TransactionCategorizer />}
             {activeTab === 'batch' && <BatchUpload />}
             {activeTab === 'ensemble' && <EnsembleVoting />}
+            {activeTab === 'reports' && <ReportsViewer />}
             {activeTab === 'health' && <HealthDashboard />}
             {activeTab === 'feedback' && <FeedbackForm />}
           </div>

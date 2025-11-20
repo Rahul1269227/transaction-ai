@@ -12,7 +12,7 @@ That's it! This single command will:
 1. ✅ Automatically merge all data sources with **standardized categories**
 2. ✅ Show detailed dataset statistics
 3. ✅ Train the model with optimal hyperparameters
-4. ✅ Save to `models/transaction_classifier_balanced_final` (standard location)
+4. ✅ Save to `models/transaction_classifier` (standard location)
 
 **No need to update .env or docker-compose.yaml!**
 
@@ -49,7 +49,7 @@ The training automatically includes **consolidated datasets** with standardized 
 ### Overall
 - **Accuracy**: 95%+ (expected, training in progress)
 - **Categories**: 29 standardized categories
-- **Model Location**: `models/transaction_classifier_balanced_final`
+- **Model Location**: `models/transaction_classifier`
 - **Improvement**: No more duplicate category confusion!
 
 ### New Categories Performance
@@ -100,7 +100,7 @@ python3 scripts/extract_kaggle_new_categories.py
 python3 scripts/train_model.py \
   --train data/balanced/train.jsonl \
   --val data/balanced/test.jsonl \
-  --output models/transaction_classifier_balanced_final \
+  --output models/transaction_classifier \
   --n-estimators 200 \
   --learning-rate 0.05 \
   --max-depth 10
@@ -115,7 +115,7 @@ python3 scripts/train_model.py \
 
 ### Start API Server
 ```bash
-MODEL_PATH=models/transaction_classifier_balanced_final \
+MODEL_PATH=models/transaction_classifier \
 python3 -m uvicorn apps.api.main:app --reload
 ```
 
@@ -152,7 +152,7 @@ data/
 └── taxonomy.yaml                  # Category definitions (with IDs)
 
 models/
-└── transaction_classifier_balanced_final/  # ← Always use this name!
+└── transaction_classifier/  # ← Always use this name!
     ├── classifier.pkl
     ├── label_encoder.pkl
     ├── metadata.pkl
@@ -163,7 +163,7 @@ models/
 
 ## Important Notes
 
-1. **Model Name**: Always use `transaction_classifier_balanced_final`
+1. **Model Name**: Always use `transaction_classifier`
    - This ensures .env and docker-compose.yaml don't need updates
    - The model will be overwritten with the latest version
 
@@ -183,7 +183,7 @@ models/
 ### Model Not Found
 Make sure the model is in the correct location:
 ```bash
-ls models/transaction_classifier_balanced_final/
+ls models/transaction_classifier/
 ```
 
 ### Permission Denied
@@ -202,7 +202,7 @@ python3 scripts/train_model.py ... --no-augment
 ## Next Steps
 
 1. Train the model: `python3 scripts/train.py`
-2. Start the API: `MODEL_PATH=models/transaction_classifier_balanced_final python3 -m uvicorn apps.api.main:app --reload`
+2. Start the API: `MODEL_PATH=models/transaction_classifier python3 -m uvicorn apps.api.main:app --reload`
 3. Test new categories: `./test_new_categories.sh`
 4. Deploy to production with Docker Compose
 

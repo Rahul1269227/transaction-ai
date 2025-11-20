@@ -136,7 +136,7 @@ class RuleCategorizer:
                 explanations=["atm_channel_or_keyword"]
             )
 
-        # Rule 2: Rent/Housing payments (mortgage, rent, property tax, maintenance)
+        # Rule 2: Rent/Housing payments (mortgage, rent, maintenance)
         if any(kw in text_upper for kw in ['MORTGAGE', 'HOME LOAN', 'HOUSING LOAN', 'MORTGAGE PAYMENT', 'MORTGAGE SERVICE']):
             return RuleMatch(
                 category="Rent",
@@ -146,15 +146,6 @@ class RuleCategorizer:
                 explanations=["mortgage_keyword"]
             )
 
-        # Property tax
-        if any(kw in text_upper for kw in ['PROPERTY TAX', 'HOUSE TAX', 'MUNICIPAL TAX']):
-            return RuleMatch(
-                category="Rent",
-                subcategory="Property Tax",
-                confidence=RULE_HIGH_CONFIDENCE,
-                matched_rules=["deterministic_property_tax"],
-                explanations=["property_tax_keyword"]
-            )
 
         # Rent payments
         if any(kw in text_upper for kw in ['RENT PAYMENT', 'TO LANDLORD', 'RENT TO']):
@@ -197,12 +188,65 @@ class RuleCategorizer:
                 explanations=["salary_keyword"]
             )
 
-        # Rule 5: Fuel (high-confidence brand matches)
-        fuel_brands = ['hpcl', 'iocl', 'bpcl', 'indian oil', 'bharat petroleum', 'hindustan petroleum']
-        if any(brand in text_lower for brand in fuel_brands):
+        # Rule 5: Taxes & Government (IRS, income tax, property tax, GST, fines)
+        # Check for property tax keywords using uppercase match for consistency
+        property_tax_keywords = ['PROPERTY TAX', 'HOUSE TAX', 'MUNICIPAL TAX']
+        if any(kw in text_upper for kw in property_tax_keywords):
+            return RuleMatch(
+                category="Taxes & Government",
+                subcategory="Property Tax",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_property_tax"],
+                explanations=["property_tax_keyword"]
+            )
+
+        # Other tax keywords
+        tax_keywords = [
+            'income tax', 'tax payment', 'irs', 'advance tax',
+            'self assessment tax', 'gst payment', 'tds payment', 'challan',
+            'government fee', 'license fee', 'passport fee', 'visa fee'
+        ]
+        if any(kw in text_lower for kw in tax_keywords):
+            return RuleMatch(
+                category="Taxes & Government",
+                subcategory="Income Tax" if 'income tax' in text_lower or 'irs' in text_lower else "Government Fees",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_tax"],
+                explanations=["tax_government_keyword"]
+            )
+
+        # Rule 6: Insurance (life, health, vehicle, home insurance premiums)
+        insurance_keywords = [
+            'insurance premium', 'insurance payment', 'lic premium', 'lic payment',
+            'health insurance', 'life insurance', 'car insurance', 'bike insurance',
+            'motor insurance', 'term insurance', 'policy premium', 'policy payment'
+        ]
+        insurance_companies = ['lic', 'hdfc life', 'icici prudential', 'sbi life', 'max life',
+                              'bajaj allianz', 'star health', 'care health', 'niva bupa']
+
+        has_insurance_keyword = any(kw in text_lower for kw in insurance_keywords)
+        has_insurance_company = any(company in text_lower for company in insurance_companies)
+
+        if has_insurance_keyword or (has_insurance_company and ('premium' in text_lower or 'policy' in text_lower)):
+            return RuleMatch(
+                category="Insurance",
+                subcategory="Life Insurance" if 'life' in text_lower else "Health Insurance" if 'health' in text_lower else "Vehicle Insurance" if any(x in text_lower for x in ['car', 'bike', 'motor', 'vehicle']) else "Insurance",
+                confidence=RULE_HIGH_CONFIDENCE,
+                matched_rules=["deterministic_insurance"],
+                explanations=["insurance_keyword"]
+            )
+
+        # Rule 7: Fuel (high-confidence brand matches)
+        fuel_brands = ['hpcl', 'iocl', 'bpcl', 'indian oil', 'bharat petroleum', 'hindustan petroleum',
+                      'shell', 'reliance petrol', 'essar', 'gas station', 'petrol pump']
+        # Include electric charging stations
+        charging_keywords = ['supercharger', 'tesla charging', 'electric charging', 'ev charging', 'charging station']
+
+        if any(brand in text_lower for brand in fuel_brands) or any(kw in text_lower for kw in charging_keywords):
+            subcategory = "Electric Charging" if any(kw in text_lower for kw in charging_keywords) else "Petrol/Diesel"
             return RuleMatch(
                 category="Fuel",
-                subcategory="Petrol/Diesel",
+                subcategory=subcategory,
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_fuel"],
                 explanations=["fuel_brand_keyword"]
@@ -230,15 +274,17 @@ class RuleCategorizer:
 
         # Rule 6: Subscription Services from Known Merchants (Apple, Netflix, Spotify, etc.)
         # High confidence for well-known subscription services
+        # FIXED: Map to Subscriptions & Memberships instead of Bills
         subscription_merchants = [
             'apple.com', 'apple.com/bill', 'netflix', 'spotify', 'google.com/bill',
             'microsoft.com', 'adobe.com', 'amazon prime', 'disney', 'hotstar',
-            'youtube premium', 'apple music', 'apple tv'
+            'youtube premium', 'apple music', 'apple tv', 'hulu', 'hbo max',
+            'paramount+', 'peacock'
         ]
         if any(merchant in text_lower for merchant in subscription_merchants):
             return RuleMatch(
-                category="Bills",
-                subcategory="Subscription",
+                category="Subscriptions & Memberships",
+                subcategory="Streaming/Software",
                 confidence=RULE_HIGH_CONFIDENCE,
                 matched_rules=["deterministic_subscription"],
                 explanations=["subscription_merchant"]
@@ -348,6 +394,7 @@ class RuleCategorizer:
             )
 
         # Rule 12: Subscriptions & Memberships (streaming, software, cloud, gym, etc.)
+        # IMPROVED: Better detection with pattern matching for "monthly subscription", "premium", etc.
         subscription_keywords = [
             'hulu', 'hbo max', 'paramount+', 'peacock', 'discovery+', 'youtube tv',
             'sling tv', 'fubo tv', 'tidal', 'pandora', 'soundcloud',
@@ -357,14 +404,24 @@ class RuleCategorizer:
             'medium membership', 'patreon', 'github pro', 'slack premium', 'zoom pro',
             'asana', 'trello', 'kindle unlimited', 'audible', 'scribd', 'blinkist',
             'peloton', 'apple fitness', 'beachbody', 'fitbit premium', 'strava',
-            'playstation plus', 'xbox game pass', 'nintendo online', 'ea play',
+            'playstation plus', 'playstationplus', 'xbox game pass', 'nintendo online', 'ea play',
             'coursera', 'udemy', 'linkedin learning', 'skillshare', 'masterclass',
             'duolingo', 'babbel', 'rosetta stone', 'costco membership', 'sams club',
             'aaa membership', '24 hour fitness', 'planet fitness', 'la fitness',
-            'equinox', 'classpass', 'headspace', 'calm', 'betterhelp',
-            'subscription', 'membership', 'premium', 'pro plan', 'recurring payment'
+            'equinox', 'classpass', 'headspace', 'calm', 'betterhelp'
         ]
-        if any(kw in text_lower for kw in subscription_keywords):
+
+        # Pattern-based detection for subscription phrases
+        subscription_patterns = [
+            r'\bmonthly subscription\b', r'\bannual subscription\b', r'\bpremium subscription\b',
+            r'\bpremium monthly\b', r'\bpremium annual\b', r'\bpro plan\b',
+            r'\brecurring payment\b', r'\bmembership fee\b', r'\bsubscription fee\b'
+        ]
+
+        has_subscription_keyword = any(kw in text_lower for kw in subscription_keywords)
+        has_subscription_pattern = any(re.search(pattern, text_lower) for pattern in subscription_patterns)
+
+        if has_subscription_keyword or has_subscription_pattern:
             return RuleMatch(
                 category="Subscriptions & Memberships",
                 subcategory="Subscription Service",
