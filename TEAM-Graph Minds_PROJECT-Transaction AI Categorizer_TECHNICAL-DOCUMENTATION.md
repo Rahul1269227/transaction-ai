@@ -1,9 +1,13 @@
 # Transaction AI - Comprehensive Technical Documentation
 
 **Project Name:** Transaction AI - Intelligent Financial Transaction Categorization System
+
 **Version:** 1.8.0
+
 **Date:** November 20, 2025
-**Author:** Transaction AI Team
+
+**Author:** Team Graph Minds
+
 **License:** MIT License
 
 ---
@@ -19,7 +23,7 @@
 - ✅ **100% privacy** (zero external API dependencies)
 - ✅ **$0.0004 per transaction** (vs. $0.30+ for commercial APIs)
 - ✅ **<1% bias disparity** (automated fairness testing)
-- ✅ **99.7% uptime** (production-validated over 30 days)
+- ✅ **99.7% uptime** (production-validated over 4 days)
 
 ---
 
@@ -243,52 +247,52 @@ GitHub Actions (CI/CD)
 ## 2.1 High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                    TRANSACTION AI SYSTEM ARCHITECTURE                │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                       │
+┌────────────────────────────────────────────────────────────────────┐
+│                    TRANSACTION AI SYSTEM ARCHITECTURE              │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                    │
 │  ┌──────────────────────────────────────────────────────────────┐  │
-│  │                    PRESENTATION LAYER                         │  │
+│  │                    PRESENTATION LAYER                        │  │
 │  ├──────────────────────────────────────────────────────────────┤  │
-│  │                                                                │  │
+│  │                                                              │  │
 │  │  ┌──────────────────┐        ┌─────────────────────────┐     │  │
 │  │  │   Next.js UI     │        │  External Applications  │     │  │
 │  │  │   (Port 3000)    │        │  (REST API Clients)     │     │  │
 │  │  │                  │        │                         │     │  │
-│  │  │  • Dashboard     │        │  • Mobile Apps          │     │  │
+│  │  │  • Dashboard     │        │  • Web Apps             │     │  │
 │  │  │  • Batch Upload  │        │  • Accounting Software  │     │  │
 │  │  │  • PDF Upload    │        │  • Banking Platforms    │     │  │
 │  │  │  • Monitoring    │        │  • Custom Integrations  │     │  │
 │  │  └──────────────────┘        └─────────────────────────┘     │  │
-│  │           │                              │                     │  │
-│  │           └──────────────────────────────┘                     │  │
-│  │                           │                                     │  │
-│  └───────────────────────────┼─────────────────────────────────┘  │
+│  │           │                              │                   │  │
+│  │           └──────────────────────────────┘                   │  │
+│  │                           │                                  │  │
+│  └───────────────────────────┼──────────────────────────────────┘  │
 │                              │                                     │
-│  ┌───────────────────────────▼─────────────────────────────────┐  │
-│  │                     API GATEWAY LAYER                         │  │
+│  ┌───────────────────────────▼──────────────────────────────────┐  │
+│  │                     API GATEWAY LAYER                        │  │
 │  ├──────────────────────────────────────────────────────────────┤  │
-│  │                                                                │  │
-│  │              FastAPI Application (Port 8000)                  │  │
-│  │                                                                │  │
-│  │  REST Endpoints:                                              │  │
-│  │  • POST /categorize (single transaction)                      │  │
-│  │  • POST /categorize/batch (bulk processing)                   │  │
-│  │  • POST /upload-pdf (bank statement upload)                   │  │
-│  │  • POST /feedback (user corrections)                          │  │
-│  │  • GET /health (system health check)                          │  │
-│  │  • GET /stats (performance metrics)                           │  │
-│  │  • GET /docs (OpenAPI documentation)                          │  │
-│  │                                                                │  │
+│  │                                                              │  │
+│  │              FastAPI Application (Port 8000)                 │  │
+│  │                                                              │  │
+│  │  REST Endpoints:                                             │  │
+│  │  • POST /categorize (single transaction)                     │  │
+│  │  • POST /categorize/batch (bulk processing)                  │  │
+│  │  • POST /upload-pdf (bank statement upload)                  │  │
+│  │  • POST /feedback (user corrections)                         │  │
+│  │  • GET /health (system health check)                         │  │
+│  │  • GET /stats (performance metrics)                          │  │
+│  │  • GET /docs (OpenAPI documentation)                         │  │
+│  │                                                              │  │
 │  └───────────────────────────┬──────────────────────────────────┘  │
 │                              │                                     │
-│  ┌───────────────────────────▼─────────────────────────────────┐  │
-│  │                   BUSINESS LOGIC LAYER                        │  │
+│  ┌───────────────────────────▼──────────────────────────────────┐  │
+│  │                   BUSINESS LOGIC LAYER                       │  │
 │  ├──────────────────────────────────────────────────────────────┤  │
-│  │                                                                │  │
+│  │                                                              │  │
 │  │  ┌──────────────────────────────────────────────────────┐    │  │
-│  │  │            ENSEMBLE ROUTER (Core)                     │    │  │
-│  │  │                                                        │    │  │
+│  │  │            ENSEMBLE ROUTER (Core)                    │    │  │
+│  │  │                                                      │    │  │
 │  │  │  ┌──────────────────────────────────────────────┐    │    │  │
 │  │  │  │        PREPROCESSING PIPELINE                │    │    │  │
 │  │  │  │                                              │    │    │  │
@@ -307,81 +311,81 @@ GitHub Actions (CI/CD)
 │  │  │  │     • Date/time features                     │    │    │  │
 │  │  │  │     • MCC code extraction                    │    │    │  │
 │  │  │  └──────────────────────────────────────────────┘    │    │  │
-│  │  │                        │                              │    │  │
-│  │  │  ┌─────────────────────▼─────────────────────────┐  │    │  │
-│  │  │  │        INTELLIGENT ROUTING                     │  │    │  │
-│  │  │  │                                                │  │    │  │
-│  │  │  │  Early Exit Checks:                           │  │    │  │
-│  │  │  │  ├─ High-confidence merchant? → Return (40%)  │  │    │  │
-│  │  │  │  ├─ High-confidence MCC? → Return (10%)       │  │    │  │
-│  │  │  │  └─ High-confidence rule? → Return (10%)      │  │    │  │
-│  │  │  │                                                │  │    │  │
-│  │  │  │  Full Ensemble: (40% of requests)             │  │    │  │
-│  │  │  └────────────────────┬──────────────────────────┘  │    │  │
+│  │  │                        │                             │    │  │
+│  │  │  ┌─────────────────────▼─────────────────────────┐   │    │  │
+│  │  │  │        INTELLIGENT ROUTING                    │   │    │  │
+│  │  │  │                                               │   │    │  │
+│  │  │  │  Early Exit Checks:                           │   │    │  │
+│  │  │  │  ├─ High-confidence merchant? → Return (40%)  │   │    │  │
+│  │  │  │  ├─ High-confidence MCC? → Return (10%)       │   │    │  │
+│  │  │  │  └─ High-confidence rule? → Return (10%)      │   │    │  │
+│  │  │  │                                               │   │    │  │
+│  │  │  │  Full Ensemble: (40% of requests)             │   │    │  │
+│  │  │  └────────────────────┬──────────────────────────┘   │    │  │
 │  │  │                       │                              │    │  │
-│  │  │  ┌────────────────────▼─────────────────────────┐   │    │  │
-│  │  │  │       PARALLEL ENSEMBLE EXECUTION            │   │    │  │
-│  │  │  │                                              │   │    │  │
-│  │  │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  │   │    │  │
-│  │  │  │  │   MCC    │  │  Rules   │  │    ML    │  │   │    │  │
-│  │  │  │  │Classifier│  │  Engine  │  │Embeddings│  │   │    │  │
-│  │  │  │  │  (15%)   │  │  (15%)   │  │  (65%)   │  │   │    │  │
-│  │  │  │  └─────┬────┘  └─────┬────┘  └─────┬────┘  │   │    │  │
-│  │  │  │        │             │             │        │   │    │  │
-│  │  │  │        └─────────────┼─────────────┘        │   │    │  │
-│  │  │  │                      │                      │   │    │  │
-│  │  │  │              ┌───────▼────────┐            │   │    │  │
-│  │  │  │              │  Disagreement? │            │   │    │  │
-│  │  │  │              └───────┬────────┘            │   │    │  │
-│  │  │  │                      │ YES (15%)           │   │    │  │
-│  │  │  │              ┌───────▼────────┐            │   │    │  │
-│  │  │  │              │      LLM       │            │   │    │  │
-│  │  │  │              │  (Llama 3.1)   │            │   │    │  │
-│  │  │  │              │     (5%)       │            │   │    │  │
-│  │  │  │              └────────────────┘            │   │    │  │
-│  │  │  └──────────────────────────────────────────┘   │    │  │
-│  │  │                       │                          │    │  │
-│  │  │  ┌────────────────────▼─────────────────────┐   │    │  │
-│  │  │  │        WEIGHTED VOTING & CONFIDENCE      │   │    │  │
-│  │  │  │                                          │   │    │  │
-│  │  │  │  • Aggregate predictions                 │   │    │  │
-│  │  │  │  • Agreement-based calibration           │   │    │  │
-│  │  │  │  • Confidence thresholds                 │   │    │  │
-│  │  │  │  • Explanation generation                │   │    │  │
-│  │  │  └──────────────────────────────────────────┘   │    │  │
-│  │  └──────────────────────────────────────────────────┘    │  │
-│  │                                                            │  │
-│  └────────────────────────────┬───────────────────────────┘  │
-│                               │                               │
-│  ┌────────────────────────────▼──────────────────────────┐   │
-│  │                    DATA ACCESS LAYER                    │   │
-│  ├─────────────────────────────────────────────────────────┤   │
-│  │                                                           │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐   │   │
-│  │  │ PostgreSQL  │  │    Redis    │  │   Ollama     │   │   │
-│  │  │  Database   │  │    Cache    │  │  LLM Service │   │   │
-│  │  │ (Port 5432) │  │ (Port 6379) │  │ (Port 11434) │   │   │
-│  │  │             │  │             │  │              │   │   │
-│  │  │ • Txns      │  │ • Responses │  │ • Llama 3.1  │   │   │
-│  │  │ • Feedback  │  │ • Sessions  │  │ • Local GPU  │   │   │
-│  │  │ • Audit     │  │ • TTL: 10m  │  │ • 8B params  │   │   │
-│  │  └─────────────┘  └─────────────┘  └──────────────┘   │   │
-│  │                                                           │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │           MONITORING & OBSERVABILITY (Optional)          │   │
-│  ├─────────────────────────────────────────────────────────┤   │
-│  │                                                           │   │
-│  │  ┌─────────────┐          ┌─────────────┐              │   │
-│  │  │ Prometheus  │──────────│   Grafana   │              │   │
-│  │  │ (Port 9090) │          │ (Port 3000) │              │   │
-│  │  │             │          │             │              │   │
-│  │  │ • Metrics   │          │ • Dashboards│              │   │
-│  │  │ • Time-series│         │ • Alerts    │              │   │
-│  │  └─────────────┘          └─────────────┘              │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+│  │  │  ┌────────────────────▼─────────────────────────┐    │    │  │
+│  │  │  │       PARALLEL ENSEMBLE EXECUTION            │    │    │  │
+│  │  │  │                                              │    │    │  │
+│  │  │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐    │    │    │  │
+│  │  │  │  │   MCC    │  │  Rules   │  │    ML    │    │    │    │  │
+│  │  │  │  │Classifier│  │  Engine  │  │Embeddings│    │    │    │  │
+│  │  │  │  │  (15%)   │  │  (15%)   │  │  (65%)   │    │    │    │  │
+│  │  │  │  └─────┬────┘  └─────┬────┘  └─────┬────┘    │    │    │  │
+│  │  │  │        │             │             │         │    │    │  │
+│  │  │  │        └─────────────┼─────────────┘         │    │    │  │
+│  │  │  │                      │                       │    │    │  │
+│  │  │  │              ┌───────▼────────┐              │    │    │  │
+│  │  │  │              │  Disagreement? │              │    │    │  │
+│  │  │  │              └───────┬────────┘              │    │    │  │
+│  │  │  │                      │ YES (15%)             │    │    │  │
+│  │  │  │              ┌───────▼────────┐              │    │    │  │
+│  │  │  │              │      LLM       │              │    │    │  │
+│  │  │  │              │  (Llama 3.1)   │              │    │    │  │
+│  │  │  │              │      (5%)      │              │    │    │  │
+│  │  │  │              └────────────────┘              │    │    │  │
+│  │  │  └──────────────────────────────────────────────┘    │    │  │
+│  │  │                       │                              │    │  │
+│  │  │  ┌────────────────────▼─────────────────────┐        │    │  │
+│  │  │  │        WEIGHTED VOTING & CONFIDENCE      │        │    │  │
+│  │  │  │                                          │        │    │  │
+│  │  │  │  • Aggregate predictions                 │        │    │  │
+│  │  │  │  • Agreement-based calibration           │        │    │  │
+│  │  │  │  • Confidence thresholds                 │        │    │  │
+│  │  │  │  • Explanation generation                │        │    │  │
+│  │  │  └──────────────────────────────────────────┘        │    │  │
+│  │  └──────────────────────────────────────────────────────┘    │  │
+│  │                                                              │  │
+│  └────────────────────────────┬─────────────────────────────────┘  │
+│                               │                                    │
+│  ┌────────────────────────────▼────────────────────────────┐       │
+│  │                    DATA ACCESS LAYER                    │       │
+│  ├─────────────────────────────────────────────────────────┤       │
+│  │                                                         │       │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐     │       │
+│  │  │ PostgreSQL  │  │    Redis    │  │   Ollama     │     │       │
+│  │  │  Database   │  │    Cache    │  │  LLM Service │     │       │
+│  │  │ (Port 5432) │  │ (Port 6379) │  │ (Port 11434) │     │       │
+│  │  │             │  │             │  │              │     │       │
+│  │  │ • Txns      │  │ • Responses │  │ • Llama 3.1  │     │       │
+│  │  │ • Feedback  │  │ • Sessions  │  │ • Local GPU  │     │       │
+│  │  │ • Audit     │  │ • TTL: 10m  │  │ • 8B params  │     │       │
+│  │  └─────────────┘  └─────────────┘  └──────────────┘     │       │
+│  │                                                         │       │
+│  └─────────────────────────────────────────────────────────┘       │
+│                                                                    │
+│  ┌─────────────────────────────────────────────────────────┐       │
+│  │           MONITORING & OBSERVABILITY (Optional)         │       │
+│  ├─────────────────────────────────────────────────────────┤       │
+│  │                                                         │       │
+│  │  ┌──────────────┐          ┌─────────────┐              │       │
+│  │  │ Prometheus   │──────────│   Grafana   │              │       │
+│  │  │ (Port 9090)  │          │ (Port 3000) │              │       │
+│  │  │              │          │             │              │       │
+│  │  │ • Metrics    │          │ • Dashboards│              │       │
+│  │  │ • Time-series│          │ • Alerts    │              │       │
+│  │  └──────────────┘          └─────────────┘              │       │
+│  └─────────────────────────────────────────────────────────┘       │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## 2.2 Component Interaction Flow
@@ -871,44 +875,44 @@ The system uses a **4-method weighted ensemble** that combines complementary app
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              HYBRID ENSEMBLE ARCHITECTURE                    │
+│              HYBRID ENSEMBLE ARCHITECTURE                   │
 ├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Method 1: MCC Classifier (15% weight)                       │
-│  ├─ ISO 18245 merchant category codes                        │
-│  ├─ 800+ MCC codes mapped to 28 categories                   │
-│  ├─ Deterministic (100% reproducible)                        │
-│  └─ Use case: Card transactions with MCC metadata            │
-│                                                               │
-│  Method 2: Rule-Based Engine (15% weight)                    │
-│  ├─ 90+ regex patterns across 28 categories                  │
-│  ├─ Keyword matching (taxonomy.yaml)                         │
-│  ├─ Merchant gazetteer lookup (1,500+ merchants)             │
-│  └─ Use case: Known merchants and common patterns            │
-│                                                               │
-│  Method 3: ML Embedding Classifier (65% weight - PRIMARY)    │
-│  ├─ Sentence-BERT embeddings (384-dim)                       │
-│  ├─ LightGBM gradient boosting (22,664 training samples)     │
-│  ├─ Semantic understanding (handles variations)              │
-│  └─ Use case: General-purpose categorization                 │
-│                                                               │
-│  Method 4: LLM Classifier (5% weight - TIEBREAKER)           │
-│  ├─ Llama 3.1 8B (local, no external API)                    │
-│  ├─ Few-shot learning (5 examples per category)              │
-│  ├─ Contextual reasoning (handles ambiguity)                 │
-│  └─ Use case: Disagreement resolution, edge cases            │
-│                                                               │
-│  Optimization: Early Exit + Parallel Execution               │
-│  ├─ 40% exit at merchant match (25ms)                        │
-│  ├─ 10% exit at MCC match (30ms)                             │
-│  ├─ 10% exit at rule match (30ms)                            │
-│  ├─ 40% run full ensemble (95ms without LLM, 850ms with LLM) │
-│  └─ LLM invoked only on disagreement (15% of ensemble)       │
-│                                                               │
-│  Result:                                                      │
-│  ✅ 98.43% accuracy (best-in-class)                          │
-│  ✅ 95ms P95 latency (4-8x faster than APIs)                 │
-│  ✅ Transparent explanations (5 levels)                      │
+│                                                             │
+│  Method 1: MCC Classifier (15% weight)                      │
+│  ├─ ISO 18245 merchant category codes                       │
+│  ├─ 800+ MCC codes mapped to 28 categories                  │
+│  ├─ Deterministic (100% reproducible)                       │
+│  └─ Use case: Card transactions with MCC metadata           │
+│                                                             │
+│  Method 2: Rule-Based Engine (15% weight)                   │
+│  ├─ 90+ regex patterns across 28 categories                 │
+│  ├─ Keyword matching (taxonomy.yaml)                        │
+│  ├─ Merchant gazetteer lookup (1,500+ merchants)            │
+│  └─ Use case: Known merchants and common patterns           │
+│                                                             │
+│  Method 3: ML Embedding Classifier (65% weight - PRIMARY)   │
+│  ├─ Sentence-BERT embeddings (384-dim)                      │
+│  ├─ LightGBM gradient boosting (22,664 training samples)    │
+│  ├─ Semantic understanding (handles variations)             │
+│  └─ Use case: General-purpose categorization                │
+│                                                             │
+│  Method 4: LLM Classifier (5% weight - TIEBREAKER)          │
+│  ├─ Llama 3.1 8B (local, no external API)                   │
+│  ├─ Few-shot learning (5 examples per category)             │
+│  ├─ Contextual reasoning (handles ambiguity)                │
+│  └─ Use case: Disagreement resolution, edge cases           │
+│                                                             │
+│  Optimization: Early Exit + Parallel Execution              │
+│  ├─ 40% exit at merchant match (25ms)                       │
+│  ├─ 10% exit at MCC match (30ms)                            │
+│  ├─ 10% exit at rule match (30ms)                           │
+│  ├─ 40% run full ensemble (95ms without LLM, 850ms with LLM)│
+│  └─ LLM invoked only on disagreement (15% of ensemble)      │
+│                                                             │
+│  Result:                                                    │
+│  ✅ 98.43% accuracy                                         │
+│  ✅ 95ms P95 latency (4-8x faster than APIs)                │
+│  ✅ Transparent explanations (5 levels)                     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -1056,30 +1060,30 @@ subscription_patterns = [
 ### Architecture
 ```
 ┌─────────────────────────────────────────────────────────┐
-│         ML EMBEDDING CLASSIFIER PIPELINE                 │
+│         ML EMBEDDING CLASSIFIER PIPELINE                │
 ├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  Step 1: Text Embedding                                  │
-│  ├─ Model: sentence-transformers/all-MiniLM-L6-v2        │
-│  ├─ Input: "STARBUCKS COFFEE"                            │
-│  ├─ Output: 384-dimensional vector                       │
-│  ├─ Latency: ~50ms (CPU)                                 │
-│  └─ Memory: 80MB (model) + 1.5KB (embedding)             │
-│                                                           │
-│  Step 2: Classification                                   │
-│  ├─ Model: LightGBM (Gradient Boosting Trees)            │
-│  ├─ Input: 384-dim embedding                             │
-│  ├─ Output: 28-class probability distribution            │
-│  ├─ Latency: ~10ms                                       │
-│  └─ Memory: 250MB (model)                                │
-│                                                           │
-│  Step 3: Confidence Calibration                          │
-│  ├─ Apply softmax to probabilities                       │
-│  ├─ Apply category-specific thresholds                   │
-│  └─ Return top prediction + confidence                   │
-│                                                           │
-│  Total Latency: ~65ms                                    │
-│  Total Memory: ~330MB                                    │
+│                                                         │
+│  Step 1: Text Embedding                                 │
+│  ├─ Model: sentence-transformers/all-MiniLM-L6-v2       │
+│  ├─ Input: "STARBUCKS COFFEE"                           │
+│  ├─ Output: 384-dimensional vector                      │
+│  ├─ Latency: ~50ms (CPU)                                │
+│  └─ Memory: 80MB (model) + 1.5KB (embedding)            │
+│                                                         │
+│  Step 2: Classification                                 │
+│  ├─ Model: LightGBM (Gradient Boosting Trees)           │
+│  ├─ Input: 384-dim embedding                            │
+│  ├─ Output: 28-class probability distribution           │
+│  ├─ Latency: ~10ms                                      │
+│  └─ Memory: 250MB (model)                               │
+│                                                         │
+│  Step 3: Confidence Calibration                         │
+│  ├─ Apply softmax to probabilities                      │
+│  ├─ Apply category-specific thresholds                  │
+│  └─ Return top prediction + confidence                  │
+│                                                         │
+│  Total Latency: ~65ms                                   │
+│  Total Memory: ~330MB                                   │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1174,35 +1178,35 @@ class EmbeddingClassifier:
         }
 ```
 
-## 4.5 Method 4: LLM Classifier (Tiebreaker)
+## 4.5 Method 4: LLM Classifier (Tie-breaker)
 
 **Technology:** Llama 3.1 8B (via Ollama, self-hosted)
 
 ### Architecture
 ```
 ┌─────────────────────────────────────────────────────────┐
-│              LLM CLASSIFIER (LLAMA 3.1 8B)               │
+│              LLM CLASSIFIER (LLAMA 3.1 8B)              │
 ├─────────────────────────────────────────────────────────┤
-│                                                           │
-│  Deployment: Ollama (local server, port 11434)           │
-│  Model: meta-llama/Llama-3.1-8B-Instruct                 │
-│  Parameters: 8 billion                                    │
-│  Quantization: Q4_K_M (4-bit, 4.5GB)                      │
-│  Context Length: 8,192 tokens                             │
-│  Inference: CPU only (4 threads)                          │
-│  Latency: ~3,000ms per request                            │
-│  Memory: 6GB RAM (model + context)                        │
-│                                                           │
-│  Strategy: Few-Shot Learning                              │
-│  ├─ Provide 5 examples per relevant category              │
-│  ├─ Use chain-of-thought prompting                        │
-│  ├─ Extract category from natural language response       │
-│  └─ Invoke ONLY on disagreement (15% of requests)         │
-│                                                           │
-│  Optimization: Conditional Invocation                     │
-│  ├─ Rule + ML agree (≥90% confidence) → Skip LLM (85%)    │
-│  ├─ Disagreement detected → Invoke LLM (15%)              │
-│  └─ LLM timeout (120s) → Fallback to ML prediction        │
+│                                                         │
+│  Deployment: Ollama (local server, port 11434)          │
+│  Model: meta-llama/Llama-3.1-8B-Instruct                │
+│  Parameters: 8 billion                                  │
+│  Quantization: Q4_K_M (4-bit, 4.5GB)                    │
+│  Context Length: 8,192 tokens                           │
+│  Inference: CPU only (4 threads)                        │
+│  Latency: ~3,000ms per request                          │
+│  Memory: 6GB RAM (model + context)                      │
+│                                                         │
+│  Strategy: Few-Shot Learning                            │
+│  ├─ Provide 5 examples per relevant category            │
+│  ├─ Use chain-of-thought prompting                      │
+│  ├─ Extract category from natural language response     │
+│  └─ Invoke ONLY on disagreement (15% of requests)       │
+│                                                         │
+│  Optimization: Conditional Invocation                   │
+│  ├─ Rule + ML agree (≥90% confidence) → Skip LLM (85%)  │
+│  ├─ Disagreement detected → Invoke LLM (15%)            │
+│  └─ LLM timeout (120s) → Fallback to ML prediction      │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1657,10 +1661,10 @@ Traditional API Architecture (❌ Privacy Risk):
   ❌ Compliance risk (GDPR, local regulations)
 
 Our Architecture (✅ Privacy Guaranteed):
-  ┌──────────┐  Local  ┌───────────┐
-  │  Client  │────────▶│ Your Server│
-  │   Data   │         │  (Docker) │
-  └──────────┘         └───────────┘
+  ┌──────────┐  Local  ┌─────────────┐
+  │  Client  │────────▶│ Your Server │
+  │   Data   │         │  (Docker)   │
+  └──────────┘         └─────────────┘
 
   Benefits:
   ✅ Data never leaves your infrastructure
@@ -1808,20 +1812,8 @@ Article 13-14: Right to Information
   ✅ Privacy notice provided
   ✅ Purpose of processing disclosed
 
-Article 15: Right of Access
-  ✅ Endpoint: GET /api/transactions/export
-  ✅ Format: JSON or CSV
-
 Article 16: Right to Rectification
   ✅ Endpoint: POST /api/feedback (correct categories)
-
-Article 17: Right to Erasure
-  ✅ Endpoint: DELETE /api/transactions/delete-all
-  ✅ Hard delete (no soft delete)
-
-Article 20: Right to Data Portability
-  ✅ Machine-readable format (JSON)
-  ✅ CSV export option
 
 Article 22: Right to Explanation
   ✅ 5-level explanation framework
@@ -1833,9 +1825,7 @@ Article 22: Right to Explanation
 ```yaml
 Section 1798.100: Consumer Rights
   ✅ Right to know what data is collected
-  ✅ Right to delete personal information
-  ✅ Right to opt-out of data sale (N/A - no data sale)
-
+  
 Section 1798.110: Data Disclosure
   ✅ Categories of data collected disclosed
   ✅ Purpose of collection disclosed
@@ -2784,6 +2774,9 @@ This project is released under the MIT License, enabling anyone - from solo deve
 ---
 
 **Document Version:** 1.0
+
 **Last Updated:** November 20, 2025
+
 **Pages:** 48
+
 **Word Count:** ~18,000 words
