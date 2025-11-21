@@ -144,7 +144,7 @@ ML_WEIGHT = float(os.getenv("ML_WEIGHT", "0.30"))
 LLM_WEIGHT = float(os.getenv("LLM_WEIGHT", "0.20"))
 LLM_URL = os.getenv("LLM_URL", "http://llm-service:11434")
 LLM_MODEL = os.getenv("LLM_MODEL", "llama3.1:8b")
-LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "50.0"))  # 50-second timeout for LLM inference (first call loads model)
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "180.0"))  # 3-minute timeout for LLM inference (first call loads model)
 USE_ENSEMBLE = bool_from_env("USE_ENSEMBLE", False)
 FAST_MODE = bool_from_env("FAST_MODE", False)  # Skip LLM when rule+ML agree with high confidence
 FAST_MODE_THRESHOLD = float(os.getenv("FAST_MODE_THRESHOLD", "0.90"))  # Confidence threshold for fast mode
@@ -294,16 +294,39 @@ if PROMETHEUS_ENABLED:
             "ensemble_agreement_ratio",
             "Agreement ratio across ensemble methods (last observation)",
         )
+        # New metrics for enhanced monitoring
+        CONFIDENCE_HIST = Histogram(
+            "categorization_confidence",
+            "Confidence score distribution",
+            ["endpoint"],
+            buckets=(0.5, 0.6, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0),
+        )
+        CATEGORY_COUNTER = Counter(
+            "categorization_category_total",
+            "Count of transactions per category",
+            ["category", "endpoint"],
+        )
+        ERROR_COUNTER = Counter(
+            "categorization_errors_total",
+            "Count of errors by type",
+            ["error_type", "endpoint"],
+        )
+        DB_QUERY_HIST = Histogram(
+            "db_query_duration_seconds",
+            "Database query duration",
+            ["operation"],
+            buckets=(0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0),
+        )
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning(f"Prometheus client unavailable: {exc}")
         PROMETHEUS_ENABLED = False
         REQUEST_COUNTER = LATENCY_HIST = METHOD_COUNTER = REVIEW_COUNTER = CACHE_COUNTER = None
-        ENSEMBLE_AGREEMENT = None
+        ENSEMBLE_AGREEMENT = CONFIDENCE_HIST = CATEGORY_COUNTER = ERROR_COUNTER = DB_QUERY_HIST = None
         CONTENT_TYPE_LATEST = None
         generate_latest = None
 else:
     REQUEST_COUNTER = LATENCY_HIST = METHOD_COUNTER = REVIEW_COUNTER = CACHE_COUNTER = None
-    ENSEMBLE_AGREEMENT = None
+    ENSEMBLE_AGREEMENT = CONFIDENCE_HIST = CATEGORY_COUNTER = ERROR_COUNTER = DB_QUERY_HIST = None
     CONTENT_TYPE_LATEST = None
     generate_latest = None
 
@@ -335,6 +358,13 @@ def record_metrics(
         agree = output.ensemble_votes.get("agreement_count") or 0
         if total:
             ENSEMBLE_AGREEMENT.set(agree / total)
+
+    # Record new metrics
+    if CONFIDENCE_HIST and output.confidence is not None:
+        CONFIDENCE_HIST.labels(endpoint=endpoint).observe(float(output.confidence))
+
+    if CATEGORY_COUNTER and output.category:
+        CATEGORY_COUNTER.labels(category=output.category, endpoint=endpoint).inc()
 
 
 def record_runtime_stats(duration: float, output: Optional[TransactionOutput]) -> None:
@@ -471,6 +501,7 @@ def persist_transaction_record(output: TransactionOutput) -> Optional[int]:
         if session is None:
             return None
         try:
+            start = time.perf_counter()
             record = TransactionRecordORM(
                 original_text=output.original_text,
                 amount=_to_decimal(normalized.amount),
@@ -487,6 +518,9 @@ def persist_transaction_record(output: TransactionOutput) -> Optional[int]:
             )
             session.add(record)
             session.flush()
+            if DB_QUERY_HIST:
+                duration = time.perf_counter() - start
+                DB_QUERY_HIST.labels(operation="insert_transaction").observe(duration)
             return record.id
         except Exception as exc:
             logger.warning(f"Failed to persist transaction: {exc}")
@@ -833,6 +867,8 @@ async def categorize_transaction(transaction: TransactionInput):
         raise
     except Exception as exc:
         logger.error(f"Error categorizing transaction: {exc}")
+        if ERROR_COUNTER:
+            ERROR_COUNTER.labels(error_type=type(exc).__name__, endpoint="categorize").inc()
         raise HTTPException(status_code=500, detail=f"Categorization failed: {exc}")
 
 

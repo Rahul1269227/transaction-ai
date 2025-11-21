@@ -1,0 +1,789 @@
+{
+  "dashboard": {
+    "title": "Transaction AI - Production Dashboard",
+    "tags": ["transaction-ai", "ml", "categorization", "production"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 2,
+    "refresh": "10s",
+    "editable": true,
+    "graphTooltip": 1,
+    "panels": [
+      {
+        "id": 1,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 0},
+        "type": "row",
+        "title": "Overview - Key Metrics",
+        "collapsed": false
+      },
+      {
+        "id": 2,
+        "gridPos": {"h": 4, "w": 4, "x": 0, "y": 1},
+        "type": "stat",
+        "title": "Requests/sec (1m)",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_requests_total[1m]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "orientation": "auto",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 2,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 50, "color": "yellow"},
+                {"value": 100, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "gridPos": {"h": 4, "w": 4, "x": 4, "y": 1},
+        "type": "stat",
+        "title": "p50 Latency",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(categorization_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 100, "color": "yellow"},
+                {"value": 200, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "gridPos": {"h": 4, "w": 4, "x": 8, "y": 1},
+        "type": "stat",
+        "title": "p95 Latency",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(categorization_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 150, "color": "yellow"},
+                {"value": 300, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "gridPos": {"h": 4, "w": 4, "x": 12, "y": 1},
+        "type": "stat",
+        "title": "Auto-Accept Rate",
+        "targets": [
+          {
+            "expr": "(1 - (sum(rate(categorization_requires_review_total[10m])) / sum(rate(categorization_requests_total[10m])))) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 75, "color": "yellow"},
+                {"value": 85, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "gridPos": {"h": 4, "w": 4, "x": 16, "y": 1},
+        "type": "stat",
+        "title": "Cache Hit Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_cache_events_total{result=\"hit\"}[5m])) / (sum(rate(categorization_cache_events_total{result=\"hit\"}[5m])) + sum(rate(categorization_cache_events_total{result=\"miss\"}[5m]))) * 100",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "red"},
+                {"value": 25, "color": "yellow"},
+                {"value": 35, "color": "green"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "gridPos": {"h": 4, "w": 4, "x": 20, "y": 1},
+        "type": "stat",
+        "title": "Total Requests (24h)",
+        "targets": [
+          {
+            "expr": "sum(increase(categorization_requests_total[24h]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "graphMode": "area",
+          "colorMode": "value",
+          "textMode": "value_and_name",
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 8,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 5},
+        "type": "row",
+        "title": "Performance & Throughput",
+        "collapsed": false
+      },
+      {
+        "id": 9,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+        "type": "timeseries",
+        "title": "Request Rate by Endpoint",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_requests_total[1m])) by (endpoint)",
+            "legendFormat": "{{endpoint}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10,
+              "showPoints": "never"
+            },
+            "unit": "reqps",
+            "decimals": 2
+          }
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "calcs": ["mean", "last", "max"]
+          }
+        }
+      },
+      {
+        "id": 10,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+        "type": "timeseries",
+        "title": "Latency Percentiles (p50, p95, p99)",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(categorization_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(categorization_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(categorization_latency_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 10
+            },
+            "unit": "ms",
+            "decimals": 0
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "p50"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "p95"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "p99"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]
+            }
+          ]
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "calcs": ["mean", "last", "max"]
+          }
+        }
+      },
+      {
+        "id": 11,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 14},
+        "type": "row",
+        "title": "ML Model Performance",
+        "collapsed": false
+      },
+      {
+        "id": 12,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 15},
+        "type": "timeseries",
+        "title": "Method Usage Distribution",
+        "targets": [
+          {
+            "expr": "sum(rate(method_usage_total[5m])) by (method)",
+            "legendFormat": "{{method}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "smooth",
+              "fillOpacity": 50,
+              "stacking": {
+                "mode": "normal"
+              }
+            },
+            "unit": "ops"
+          }
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "calcs": ["mean", "last", "max"]
+          }
+        }
+      },
+      {
+        "id": 13,
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 15},
+        "type": "piechart",
+        "title": "Method Distribution (5m)",
+        "targets": [
+          {
+            "expr": "sum(increase(method_usage_total[5m])) by (method)",
+            "legendFormat": "{{method}}",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "table",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "donut",
+          "displayLabels": ["percent"]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 14,
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 15},
+        "type": "bargauge",
+        "title": "Category Distribution (Top 10)",
+        "targets": [
+          {
+            "expr": "topk(10, sum(increase(categorization_category_total[1h])) by (category))",
+            "legendFormat": "{{category}}",
+            "refId": "A",
+            "instant": true
+          }
+        ],
+        "options": {
+          "orientation": "horizontal",
+          "displayMode": "gradient",
+          "showUnfilled": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "short",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "blue"},
+                {"value": 100, "color": "green"},
+                {"value": 500, "color": "yellow"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 15,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 23},
+        "type": "row",
+        "title": "Confidence & Quality Metrics",
+        "collapsed": false
+      },
+      {
+        "id": 16,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "type": "timeseries",
+        "title": "Confidence Distribution",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_confidence_bucket[5m])) by (le)",
+            "legendFormat": "{{le}}",
+            "refId": "A",
+            "format": "heatmap"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 80
+            },
+            "unit": "ops"
+          }
+        }
+      },
+      {
+        "id": 17,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "type": "timeseries",
+        "title": "Review Required vs Auto-Accept",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_requires_review_total[5m]))",
+            "legendFormat": "Requires Review",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(categorization_requests_total[5m])) - sum(rate(categorization_requires_review_total[5m]))",
+            "legendFormat": "Auto-Accept",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 30,
+              "stacking": {
+                "mode": "normal"
+              }
+            },
+            "unit": "reqps"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Auto-Accept"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Requires Review"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]
+            }
+          ]
+        }
+      },
+      {
+        "id": 18,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 32},
+        "type": "row",
+        "title": "Cache & Database Performance",
+        "collapsed": false
+      },
+      {
+        "id": 19,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 33},
+        "type": "timeseries",
+        "title": "Cache Hit/Miss Rate",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_cache_events_total{result=\"hit\"}[5m]))",
+            "legendFormat": "Cache Hits",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(categorization_cache_events_total{result=\"miss\"}[5m]))",
+            "legendFormat": "Cache Misses",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 70
+            },
+            "unit": "ops"
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Cache Hits"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Cache Misses"},
+              "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]
+            }
+          ]
+        }
+      },
+      {
+        "id": 20,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 33},
+        "type": "timeseries",
+        "title": "Database Query Performance",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(db_query_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(db_query_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(db_query_duration_seconds_bucket[5m])) by (le)) * 1000",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 10
+            },
+            "unit": "ms"
+          }
+        }
+      },
+      {
+        "id": 21,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 41},
+        "type": "row",
+        "title": "System Resources",
+        "collapsed": false
+      },
+      {
+        "id": 22,
+        "gridPos": {"h": 8, "w": 8, "x": 0, "y": 42},
+        "type": "timeseries",
+        "title": "CPU Usage",
+        "targets": [
+          {
+            "expr": "100 - (avg(irate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "CPU Used %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 30
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 70, "color": "yellow"},
+                {"value": 90, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 23,
+        "gridPos": {"h": 8, "w": 8, "x": 8, "y": 42},
+        "type": "timeseries",
+        "title": "Memory Usage",
+        "targets": [
+          {
+            "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+            "legendFormat": "Memory Used %",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 30
+            },
+            "unit": "percent",
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 80, "color": "yellow"},
+                {"value": 95, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 24,
+        "gridPos": {"h": 8, "w": 8, "x": 16, "y": 42},
+        "type": "timeseries",
+        "title": "Disk I/O",
+        "targets": [
+          {
+            "expr": "rate(node_disk_read_bytes_total[5m])",
+            "legendFormat": "Read",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(node_disk_written_bytes_total[5m])",
+            "legendFormat": "Write",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "line",
+              "fillOpacity": 10
+            },
+            "unit": "Bps"
+          }
+        }
+      },
+      {
+        "id": 25,
+        "gridPos": {"h": 1, "w": 24, "x": 0, "y": 50},
+        "type": "row",
+        "title": "Error Tracking & Alerts",
+        "collapsed": false
+      },
+      {
+        "id": 26,
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 51},
+        "type": "timeseries",
+        "title": "Error Rate by Type",
+        "targets": [
+          {
+            "expr": "sum(rate(categorization_errors_total[5m])) by (error_type)",
+            "legendFormat": "{{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "drawStyle": "bars",
+              "fillOpacity": 70
+            },
+            "unit": "ops",
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        },
+        "options": {
+          "tooltip": {
+            "mode": "multi"
+          },
+          "legend": {
+            "displayMode": "table",
+            "placement": "bottom",
+            "calcs": ["sum", "last"]
+          }
+        }
+      },
+      {
+        "id": 27,
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 51},
+        "type": "table",
+        "title": "Recent Errors (Last 5m)",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (error_type, endpoint) (increase(categorization_errors_total[5m])))",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "sortBy": [
+            {
+              "displayName": "Value",
+              "desc": true
+            }
+          ]
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "error_type"},
+              "properties": [
+                {"id": "displayName", "value": "Error Type"},
+                {"id": "custom.width", "value": 200}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "endpoint"},
+              "properties": [
+                {"id": "displayName", "value": "Endpoint"},
+                {"id": "custom.width", "value": 200}
+              ]
+            },
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {"id": "displayName", "value": "Count"},
+                {"id": "custom.width", "value": 100}
+              ]
+            }
+          ]
+        }
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(process_start_time_seconds[1m]) > 0",
+          "iconColor": "blue",
+          "tagKeys": "deployment"
+        }
+      ]
+    }
+  }
+}

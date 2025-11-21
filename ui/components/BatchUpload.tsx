@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Upload, FileText, Loader2, Download, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
+import { Upload, FileText, Loader2, Download, CheckCircle2, XCircle, AlertCircle, RotateCcw } from 'lucide-react'
 import { API_ENDPOINTS } from '@/lib/config'
 
 interface BatchResult {
@@ -274,6 +274,17 @@ export default function BatchUpload() {
     URL.revokeObjectURL(url)
   }
 
+  const handleClear = () => {
+    setTransactions('')
+    setFile(null)
+    setResults([])
+    setProgress(0)
+    setDetectedFormat(null)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
   const successCount = results.filter(r => r.status === 'success').length
   const errorCount = results.filter(r => r.status === 'error').length
 
@@ -385,7 +396,7 @@ export default function BatchUpload() {
         <div className="flex space-x-3">
           <button
             onClick={handleBatchCategorize}
-            disabled={loading || !transactions.trim()}
+            disabled={loading || (!transactions.trim() && !file)}
             className="flex-1 inline-flex items-center justify-center px-8 py-4 border-2 border-transparent text-base font-bold rounded-2xl text-white bg-gradient-to-r from-blue-600 via-purple-600 to-purple-700 hover:from-blue-700 hover:via-purple-700 hover:to-purple-800 focus:outline-none focus:ring-4 focus:ring-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40"
           >
             {loading ? (
@@ -407,6 +418,15 @@ export default function BatchUpload() {
             >
               <Download className="h-5 w-5 mr-2" />
               Download CSV
+            </button>
+          )}
+          {(transactions.trim() || file || results.length > 0) && !loading && (
+            <button
+              onClick={handleClear}
+              className="inline-flex items-center px-8 py-4 border-2 border-red-300 dark:border-red-600 text-base font-bold rounded-2xl text-red-700 dark:text-red-300 bg-white dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-900/20 focus:outline-none focus:ring-4 focus:ring-red-500/50 transform hover:scale-105 transition-all duration-200 shadow-lg"
+            >
+              <RotateCcw className="h-5 w-5 mr-2" />
+              Clear
             </button>
           )}
         </div>

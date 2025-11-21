@@ -219,3 +219,7 @@ credentials/
 # MkDocs / ReadTheDocs
 site/
 .mkdocs_cache/
+
+# Demo files (don't commit demo/test files)
+demo_files/
+DEMO_COMMANDS.txt
