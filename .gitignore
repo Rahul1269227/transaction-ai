@@ -215,3 +215,7 @@ credentials/
 # BFG Repo Cleaner reports
 .bfg-report/
 ..bfg-report/
+
+# MkDocs / ReadTheDocs
+site/
+.mkdocs_cache/
