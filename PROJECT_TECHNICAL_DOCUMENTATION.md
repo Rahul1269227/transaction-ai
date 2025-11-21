@@ -2764,10 +2764,10 @@ This project is released under the MIT License, enabling anyone - from solo deve
 ---
 
 **Contact & Community:**
-- GitHub: https://github.com/transaction-ai/categorization
-- Documentation: https://transaction-ai.readthedocs.io
-- Discussions: https://github.com/transaction-ai/categorization/discussions
-- Issues: https://github.com/transaction-ai/categorization/issues
+- GitHub: https://github.com/Rahul1269227/transaction-ai
+- Documentation: https://rahul1269227-transaction-ai.readthedocs.io
+- Discussions: https://github.com/Rahul1269227/transaction-ai/discussions
+- Issues: https://github.com/Rahul1269227/transaction-ai/issues
 
 **Citation:**
 ```bibtex
@@ -2776,7 +2776,7 @@ This project is released under the MIT License, enabling anyone - from solo deve
   author = {Transaction AI Team},
   year = {2025},
   version = {1.8.0},
-  url = {https://github.com/transaction-ai/categorization},
+  url = {https://github.com/Rahul1269227/transaction-ai},
   license = {MIT}
 }
 ```

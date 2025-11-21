@@ -1,0 +1,98 @@
+site_name: Transaction AI Documentation
+site_url: https://rahul1269227-transaction-ai.readthedocs.io
+site_description: Intelligent Financial Transaction Categorization System
+site_author: Transaction AI Team
+repo_url: https://github.com/Rahul1269227/transaction-ai
+repo_name: Rahul1269227/transaction-ai
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Benchmarks: BENCHMARKS.md
+  - Core Documentation:
+    - 1. Problem & Objectives: 1.1_Problem_Understanding_and_Objectives.md
+    - 2. Technical Architecture: 1.2_Technical_Architecture_and_Design_Approach.md
+    - 3. Data Strategy: 1.3_Data_Strategy_and_Evaluation_Methodology.md
+    - 4. Model Selection: 1.4_Model_Selection_and_Performance_Targeting.md
+    - 5. Responsible AI: 1.5_Responsible_and_Robust_AI_Considerations.md
+  - Innovation & Features:
+    - Technical Novelty: 2.1_Novelty_in_Technical_Approach.md
+    - Explainability: 2.2_Explainability_and_Transparency.md
+    - Continuous Learning: 2.3_Feedback_and_Continuous_Learning.md
+    - Adaptability: 2.4_Adaptability_and_Customisation.md
+    - Bias Mitigation: 2.5_Bias_Mitigation_and_Ethical_Innovation.md
+  - Impact & Metrics:
+    - Business Impact: 3.1_Business_and_Cost_Impact.md
+    - User Empowerment: 3.2_User_and_Developer_Empowerment.md
+    - Scalability: 3.3_Scalability_and_Performance_Metrics.md
+    - Outcomes: 3.4_Measurable_Outcomes_and_Evaluation.md
+    - Broader Impact: 3.5_Responsible_AI_and_Broader_Impact.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/Rahul1269227/transaction-ai
+    - icon: fontawesome/solid/comments
+      link: https://github.com/Rahul1269227/transaction-ai/discussions
+  version:
+    provider: mike
+
+copyright: Copyright &copy; 2025 Transaction AI Team - MIT License

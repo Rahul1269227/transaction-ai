@@ -1,0 +1,19 @@
+# Read the Docs configuration file
+# See https://docs.readthedocs.io/en/stable/config-file/v2.html for details
+
+version: 2
+
+# Build documentation with MkDocs
+mkdocs:
+  configuration: mkdocs.yml
+
+# Python environment
+python:
+  version: "3.11"
+  install:
+    - requirements: docs/requirements.txt
+
+# Build formats
+formats:
+  - pdf
+  - epub

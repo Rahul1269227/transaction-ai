@@ -1,0 +1,105 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for Transaction AI
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your interest in improving Transaction AI! Please describe your feature idea below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the use case?
+      placeholder: I would like to be able to... because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: How would you like this feature to work?
+      placeholder: I propose that...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: What alternative solutions or workarounds have you considered?
+      placeholder: I've also considered...
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Feature Category
+      description: What type of feature is this?
+      options:
+        - Accuracy Improvement
+        - New Category Support
+        - Performance Optimization
+        - API Enhancement
+        - UI/UX Improvement
+        - Deployment/DevOps
+        - Documentation
+        - Security/Privacy
+        - Integration
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: How important is this feature to you?
+      options:
+        - Nice to have
+        - Would be helpful
+        - Important for my use case
+        - Critical/Blocking
+    validations:
+      required: true
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: Example Use Cases
+      description: Provide specific examples of how this feature would be used
+      placeholder: |
+        Example 1: When categorizing...
+        Example 2: For merchants like...
+
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical Details (Optional)
+      description: Any technical implementation ideas or requirements?
+      placeholder: This could be implemented by...
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Are you willing to contribute to this feature?
+      options:
+        - label: I would be willing to submit a PR for this feature
+          required: false
+        - label: I can help with testing
+          required: false
+        - label: I can help with documentation
+          required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues and discussions to avoid duplicates
+          required: true
+        - label: This feature aligns with Transaction AI's goals (privacy, accuracy, transparency)
+          required: true
