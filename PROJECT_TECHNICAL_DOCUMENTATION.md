@@ -253,7 +253,7 @@ GitHub Actions (CI/CD)
 │  │                                                                │  │
 │  │  ┌──────────────────┐        ┌─────────────────────────┐     │  │
 │  │  │   Next.js UI     │        │  External Applications  │     │  │
-│  │  │   (Port 3000)    │        │  (REST API Clients)     │     │  │
+│  │  │   (Port 3001)    │        │  (REST API Clients)     │     │  │
 │  │  │                  │        │                         │     │  │
 │  │  │  • Dashboard     │        │  • Mobile Apps          │     │  │
 │  │  │  • Batch Upload  │        │  • Accounting Software  │     │  │
@@ -375,7 +375,7 @@ GitHub Actions (CI/CD)
 │  │                                                           │   │
 │  │  ┌─────────────┐          ┌─────────────┐              │   │
 │  │  │ Prometheus  │──────────│   Grafana   │              │   │
-│  │  │ (Port 9090) │          │ (Port 3000) │              │   │
+│  │  │ (Port 9090) │          │ (Port 4000) │              │   │
 │  │  │             │          │             │              │   │
 │  │  │ • Metrics   │          │ • Dashboards│              │   │
 │  │  │ • Time-series│         │ • Alerts    │              │   │
@@ -2400,11 +2400,11 @@ API: http://localhost:8000
   - Health Check: http://localhost:8000/health
   - Stats: http://localhost:8000/stats
 
-UI (if enabled): http://localhost:3000
+UI (if enabled): http://localhost:3001
 
 Monitoring (if enabled):
   - Prometheus: http://localhost:9090
-  - Grafana: http://localhost:3001
+  - Grafana: http://localhost:4000
 ```
 
 ## 7.2 Production Deployment (Kubernetes)
