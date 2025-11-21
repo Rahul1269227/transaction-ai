@@ -367,5 +367,7 @@ If you have real-world bank statements you'd like us to test on, please:
 ---
 
 **Last Updated**: November 20, 2025
+
 **Version**: 1.0
+
 **Model**: transaction_classifier (98.66% validation accuracy)
