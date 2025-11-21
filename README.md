@@ -84,13 +84,13 @@ Transaction AI is a **privacy-first, production-ready** system for automatically
 ### 📊 29 Standardized Categories
 
 ```
-food_dining          groceries           transport           travel
-bills               utilities            fuel                health
-education           shopping            entertainment        subscriptions
-income_salary       transfers_upi       investments         atm_cash
-rent                insurance           professional_services automotive
-electronics         home_improvement    pets                kids_family
-personal_care       gifts_occasions     charity_donations   taxes_government
+food_dining         groceries           transport                travel
+bills               utilities           fuel                     health
+education           shopping            entertainment            subscriptions
+income_salary       transfers_upi       investments              atm_cash
+rent                insurance           professional_services    automotive
+electronics         home_improvement    pets                     kids_family
+personal_care       gifts_occasions     charity_donations        taxes_government
 fees_charges        fraud_security      other
 ```
 
@@ -126,37 +126,37 @@ fees_charges        fraud_security      other
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Transaction AI System                        │
+│                     Transaction AI System                       │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
-│  │   Next.js    │  │   FastAPI    │  │  PostgreSQL  │            │
-│  │  Dashboard   │──│   REST API   │──│   Database   │            │
-│  │  (Port 3000) │  │  (Port 8000) │  │  (Port 5432) │            │
-│  └──────────────┘  └──────┬───────┘  └──────────────┘            │
-│                            │                                       │
-│                    ┌───────┴───────┐                              │
-│                    │               │                               │
-│         ┌──────────▼────┐  ┌──────▼──────┐                        │
-│         │  Redis Cache  │  │   Ollama    │                        │
-│         │  (Port 6379)  │  │ LLM Service │                        │
-│         └───────────────┘  │ (Port 11435)│                        │
-│                            └─────────────┘                         │
-│                                                                   │
+│                                                                 │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐           │
+│  │   Next.js    │  │   FastAPI    │  │  PostgreSQL  │           │
+│  │  Dashboard   │──│   REST API   │──│   Database   │           │
+│  │  (Port 3000) │  │  (Port 8000) │  │  (Port 5432) │           │
+│  └──────────────┘  └───────┬──────┘  └──────────────┘           │
+│                            │                                    │
+│                    ┌───────┴───────┐                            │
+│                    │               │                            │
+│         ┌──────────▼────┐  ┌───────▼─────┐                      │
+│         │  Redis Cache  │  │   Ollama    │                      │
+│         │  (Port 6379)  │  │ LLM Service │                      │
+│         └───────────────┘  │ (Port 11435)│                      │
+│                            └─────────────┘                      │
+│                                                                 │
 │  ┌────────────────── Ensemble Router ─────────────────┐         │
-│  │                                                      │         │
+│  │                                                    │         │
 │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌───────┐  │         │
 │  │  │   MCC   │  │  Rules  │  │   ML    │  │  LLM  │  │         │
 │  │  │ (15%)   │  │  (15%)  │  │  (65%)  │  │  (5%) │  │         │
 │  │  └─────────┘  └─────────┘  └─────────┘  └───────┘  │         │
-│  │       ▲            ▲            ▲            ▲      │         │
-│  │       └────────────┴────────────┴────────────┘      │         │
-│  │              Weighted Voting System                 │         │
-│  └─────────────────────────────────────────────────────┘         │
-│                                                                   │
-│  ┌─────────── Monitoring Stack ──────────┐                      │
-│  │  Prometheus (Metrics) + Grafana (Viz)  │                      │
-│  └─────────────────────────────────────────┘                      │
+│  │       ▲            ▲            ▲            ▲     │         │
+│  │       └────────────┴────────────┴────────────┘     │         │
+│  │              Weighted Voting System                │         │
+│  └────────────────────────────────────────────────────┘         │
+│                                                                 │
+│  ┌─────────── Monitoring Stack ────────────┐                    │
+│  │  Prometheus (Metrics) + Grafana (Viz)   │                    │
+│  └─────────────────────────────────────────┘                    │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -182,24 +182,24 @@ Input Transaction
        │
        NO
        ▼
-┌─────────────────────────────────────┐
-│        Ensemble Voting              │
-│  ┌─────┬─────┬─────┬─────┐        │
-│  │ MCC │ Rule│ ML  │ LLM │        │
-│  │ 15% │ 15% │ 65% │ 5%  │        │
-│  └─────┴─────┴─────┴─────┘        │
-│           │                        │
-│      Weighted Vote                 │
-│           │                        │
-│    ┌──────▼──────┐                │
-│    │  Confidence │                │
-│    │  >= 80%?    │                │
-│    └──────┬──────┘                │
-│           │                        │
-│      YES  │  NO                    │
-│      ▼    ▼                        │
-│   Accept  Flag for Review          │
-└─────────────────────────────────────┘
+┌─────────────────────────────┐
+│        Ensemble Voting      │
+│  ┌─────┬─────┬─────┬─────┐  │
+│  │ MCC │ Rule│ ML  │ LLM │  │
+│  │ 15% │ 15% │ 65% │ 5%  │  │
+│  └─────┴─────┴─────┴─────┘  │
+│           │                 │
+│      Weighted Vote          │
+│           │                 │
+│    ┌──────▼──────┐          │
+│    │  Confidence │          │
+│    │  >= 80%?    │          │
+│    └──────┬──────┘          │
+│           │                 │
+│      YES  │  NO             │
+│      ▼    ▼                 │ 
+│   Accept  Flag for Review   │
+└─────────────────────────────┘
        │
        ▼
    Return Result + Cache
@@ -247,7 +247,7 @@ Input Transaction
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/transaction-ai.git
+git clone https://github.com/Rahul1269227/transaction-ai
 cd transaction-ai
 ```
 
@@ -689,7 +689,7 @@ transaction-ai/
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/transaction-ai.git
+git clone https://github.com/Rahul1269227/transaction-ai
 cd transaction-ai
 
 # Create virtual environment
