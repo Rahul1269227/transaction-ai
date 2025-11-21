@@ -129,34 +129,34 @@ fees_charges        fraud_security      other
 │                     Transaction AI System                        │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                   │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
-│  │   Next.js    │  │   FastAPI    │  │  PostgreSQL  │          │
-│  │  Dashboard   │──│   REST API   │──│   Database   │          │
-│  │  (Port 3000) │  │  (Port 8000) │  │  (Port 5432) │          │
-│  └──────────────┘  └──────┬───────┘  └──────────────┘          │
-│                            │                                      │
-│                    ┌───────┴───────┐                            │
-│                    │               │                             │
-│         ┌──────────▼────┐  ┌──────▼──────┐                     │
-│         │  Redis Cache  │  │   Ollama    │                     │
-│         │  (Port 6379)  │  │ LLM Service │                     │
-│         └───────────────┘  │ (Port 11435)│                     │
-│                            └─────────────┘                      │
-│                                                                  │
-│  ┌────────────────── Ensemble Router ─────────────────┐        │
-│  │                                                      │        │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌───────┐│        │
-│  │  │   MCC   │  │  Rules  │  │   ML    │  │  LLM  ││        │
-│  │  │ (15%)   │  │  (15%)  │  │  (65%)  │  │  (5%) ││        │
-│  │  └─────────┘  └─────────┘  └─────────┘  └───────┘│        │
-│  │       ▲            ▲            ▲            ▲     │        │
-│  │       └────────────┴────────────┴────────────┘     │        │
-│  │              Weighted Voting System                │        │
-│  └──────────────────────────────────────────────────┘│        │
-│                                                         │        │
-│  ┌─────────── Monitoring Stack ──────────┐            │        │
-│  │  Prometheus (Metrics) + Grafana (Viz)  │            │        │
-│  └─────────────────────────────────────────┘           │        │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐            │
+│  │   Next.js    │  │   FastAPI    │  │  PostgreSQL  │            │
+│  │  Dashboard   │──│   REST API   │──│   Database   │            │
+│  │  (Port 3000) │  │  (Port 8000) │  │  (Port 5432) │            │
+│  └──────────────┘  └──────┬───────┘  └──────────────┘            │
+│                            │                                       │
+│                    ┌───────┴───────┐                              │
+│                    │               │                               │
+│         ┌──────────▼────┐  ┌──────▼──────┐                        │
+│         │  Redis Cache  │  │   Ollama    │                        │
+│         │  (Port 6379)  │  │ LLM Service │                        │
+│         └───────────────┘  │ (Port 11435)│                        │
+│                            └─────────────┘                         │
+│                                                                   │
+│  ┌────────────────── Ensemble Router ─────────────────┐         │
+│  │                                                      │         │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌───────┐  │         │
+│  │  │   MCC   │  │  Rules  │  │   ML    │  │  LLM  │  │         │
+│  │  │ (15%)   │  │  (15%)  │  │  (65%)  │  │  (5%) │  │         │
+│  │  └─────────┘  └─────────┘  └─────────┘  └───────┘  │         │
+│  │       ▲            ▲            ▲            ▲      │         │
+│  │       └────────────┴────────────┴────────────┘      │         │
+│  │              Weighted Voting System                 │         │
+│  └─────────────────────────────────────────────────────┘         │
+│                                                                   │
+│  ┌─────────── Monitoring Stack ──────────┐                      │
+│  │  Prometheus (Metrics) + Grafana (Viz)  │                      │
+│  └─────────────────────────────────────────┘                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -184,21 +184,21 @@ Input Transaction
        ▼
 ┌─────────────────────────────────────┐
 │        Ensemble Voting              │
-│  ┌─────┬─────┬─────┬─────┐         │
-│  │ MCC │ Rule│ ML  │ LLM │         │
-│  │ 15% │ 15% │ 65% │ 5%  │         │
-│  └─────┴─────┴─────┴─────┘         │
-│           │                         │
-│      Weighted Vote                  │
-│           │                         │
-│    ┌──────▼──────┐                 │
-│    │  Confidence │                 │
-│    │  >= 80%?    │                 │
-│    └──────┬──────┘                 │
-│           │                         │
-│      YES  │  NO                     │
-│      ▼    ▼                         │
-│   Accept  Flag for Review           │
+│  ┌─────┬─────┬─────┬─────┐        │
+│  │ MCC │ Rule│ ML  │ LLM │        │
+│  │ 15% │ 15% │ 65% │ 5%  │        │
+│  └─────┴─────┴─────┴─────┘        │
+│           │                        │
+│      Weighted Vote                 │
+│           │                        │
+│    ┌──────▼──────┐                │
+│    │  Confidence │                │
+│    │  >= 80%?    │                │
+│    └──────┬──────┘                │
+│           │                        │
+│      YES  │  NO                    │
+│      ▼    ▼                        │
+│   Accept  Flag for Review          │
 └─────────────────────────────────────┘
        │
        ▼
@@ -314,9 +314,9 @@ docker-compose ps
 
 ### 5. Access Applications
 
-- **Dashboard UI**: http://localhost:3000
+- **Dashboard UI**: http://localhost:3001
 - **API Docs**: http://localhost:8000/docs
-- **Grafana**: http://localhost:3001 (admin/admin)
+- **Grafana**: http://localhost:4000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 
 ---
@@ -590,7 +590,7 @@ curl http://localhost:8000/metrics
 
 ### Grafana Dashboard
 
-1. Access Grafana: http://localhost:3001
+1. Access Grafana: http://localhost:4000
 2. Login: admin/admin
 3. Navigate to pre-configured dashboard: "Transaction AI Performance"
 
