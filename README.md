@@ -786,7 +786,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [docs/](docs/)
+- **Documentation**: [https://transaction-ai.readthedocs.io/en/latest/](https://transaction-ai.readthedocs.io/en/latest/)
 - **Issues**: GitHub Issues
 - **Real-World Testing**: See [REAL_WORLD_TEST_RESULTS.md](REAL_WORLD_TEST_RESULTS.md)
 

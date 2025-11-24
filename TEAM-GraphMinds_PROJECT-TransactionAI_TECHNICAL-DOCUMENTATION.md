@@ -2757,7 +2757,7 @@ This project is released under the MIT License, enabling anyone - from solo deve
 
 **Contact & Community:**
 - GitHub: https://github.com/Rahul1269227/transaction-ai
-- Documentation: https://rahul1269227-transaction-ai.readthedocs.io
+- Documentation: https://transaction-ai.readthedocs.io/en/latest/
 - Discussions: https://github.com/Rahul1269227/transaction-ai/discussions
 - Issues: https://github.com/Rahul1269227/transaction-ai/issues
 
