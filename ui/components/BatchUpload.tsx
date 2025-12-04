@@ -22,6 +22,8 @@ export default function BatchUpload() {
   const [results, setResults] = useState<BatchResult[]>([])
   const [uploadMethod, setUploadMethod] = useState<'paste' | 'file'>('paste')
   const [detectedFormat, setDetectedFormat] = useState<'txt' | 'csv' | 'json' | 'pdf' | null>(null)
+  const [processingStatus, setProcessingStatus] = useState<string>('')
+  const [totalTransactions, setTotalTransactions] = useState<number>(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const parseTransactions = (content: string, fileName?: string): string[] => {
@@ -74,27 +76,51 @@ export default function BatchUpload() {
           const lines = trimmed.split('\n')
           const transactions: string[] = []
 
+          // Helper function to parse CSV line properly (handles quoted fields with commas)
+          const parseCSVLine = (line: string): string[] => {
+            const result: string[] = []
+            let current = ''
+            let inQuotes = false
+
+            for (let i = 0; i < line.length; i++) {
+              const char = line[i]
+
+              if (char === '"') {
+                inQuotes = !inQuotes
+              } else if (char === ',' && !inQuotes) {
+                result.push(current.trim())
+                current = ''
+              } else {
+                current += char
+              }
+            }
+
+            result.push(current.trim())
+            return result
+          }
+
           for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim()
             if (!line) continue
 
-            // Skip header row if it looks like a header
+            // Skip header row (detect by common header keywords)
             if (i === 0 && (
+              line.toLowerCase().includes('date') ||
               line.toLowerCase().includes('transaction') ||
               line.toLowerCase().includes('description') ||
-              line.toLowerCase().includes('text')
+              line.toLowerCase().includes('merchant') ||
+              line.toLowerCase().includes('amount')
             )) {
+              console.log('Detected CSV header, skipping:', line)
               continue
             }
 
-            // Parse CSV line (handle quoted fields)
-            const fields = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [line]
-            const firstField = fields[0].replace(/^"|"$/g, '').trim()
-
-            if (firstField.length > 0) {
-              transactions.push(firstField)
-            }
+            // Send the ENTIRE CSV line to backend, just like single transaction
+            // Backend preprocessor will extract merchant, amount, MCC, etc.
+            transactions.push(line)
           }
+
+          console.log(`Parsed ${transactions.length} transactions from CSV`)
           return transactions
 
         case 'txt':
@@ -207,28 +233,70 @@ export default function BatchUpload() {
       }
 
       console.log(`Processing ${transactionList.length} transactions in ${detectedFormat} format`)
+      setTotalTransactions(transactionList.length)
 
-      // Call batch API with 5-minute timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000) // 5 minutes
+      // Process transactions with real-time progress updates
+      const processedResults: any[] = []
+      const batchSize = 10 // Process 10 at a time for better progress tracking
 
-      const response = await fetch(API_ENDPOINTS.batchCategorize, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ transactions: transactionList }),
-        signal: controller.signal,
-      })
+      for (let i = 0; i < transactionList.length; i += batchSize) {
+        const batch = transactionList.slice(i, Math.min(i + batchSize, transactionList.length))
 
-      clearTimeout(timeoutId)
+        // Update progress before processing batch - use await to ensure UI updates
+        const currentProgress = Math.round((i / transactionList.length) * 90) // Reserve 10% for final step
+        setProgress(currentProgress)
+        setProcessingStatus(`Processing transactions ${i + 1}-${Math.min(i + batchSize, transactionList.length)} of ${transactionList.length}...`)
 
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`)
+        // Small delay to allow React to re-render
+        await new Promise(resolve => setTimeout(resolve, 100))
+
+        // Call batch API for this chunk
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000) // 5 minutes
+
+        try {
+          const response = await fetch(API_ENDPOINTS.batchCategorize, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ transactions: batch }),
+            signal: controller.signal,
+          })
+
+          clearTimeout(timeoutId)
+
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`)
+          }
+
+          const data = await response.json()
+          processedResults.push(...(data.results || []))
+
+          // Update results immediately so user sees progress
+          setResults([...processedResults])
+
+          // Update progress after batch completes
+          const completedProgress = Math.round(((i + batch.length) / transactionList.length) * 90)
+          setProgress(completedProgress)
+
+        } catch (error) {
+          clearTimeout(timeoutId)
+          // Add error results for failed transactions
+          batch.forEach(txn => {
+            processedResults.push({
+              transaction: txn,
+              category: 'error',
+              confidence: 0,
+              method: 'error',
+              status: 'error',
+              error_message: error instanceof Error ? error.message : 'Unknown error'
+            })
+          })
+          setResults([...processedResults])
+        }
       }
 
-      const data = await response.json()
-      setResults(data.results || [])
       setProgress(100)
     } catch (error: any) {
       if (error.name === 'AbortError') {
@@ -436,7 +504,9 @@ export default function BatchUpload() {
       {loading && (
         <div className="space-y-3">
           <div className="flex items-center justify-between text-sm font-bold">
-            <span className="text-slate-700 dark:text-slate-300">Processing transactions...</span>
+            <span className="text-slate-700 dark:text-slate-300">
+              {processingStatus || 'Processing transactions...'}
+            </span>
             <span className="text-purple-600 dark:text-purple-400">{progress}%</span>
           </div>
           <div className="relative w-full bg-slate-200 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
@@ -445,6 +515,12 @@ export default function BatchUpload() {
               style={{ width: `${progress}%` }}
             />
           </div>
+          {/* Show real-time results count */}
+          {results.length > 0 && (
+            <div className="text-xs text-slate-600 dark:text-slate-400 text-center">
+              ✓ {results.length} of {totalTransactions} transactions categorized
+            </div>
+          )}
         </div>
       )}
 
@@ -510,17 +586,51 @@ export default function BatchUpload() {
                         <XCircle className="h-5 w-5 text-red-500" />
                       )}
                     </td>
-                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white max-w-xs truncate">
-                      {result.transaction}
+                    <td className="px-6 py-4 font-medium text-slate-900 dark:text-white">
+                      <div className="max-w-xs">
+                        <div className="font-semibold truncate" title={result.transaction}>
+                          {result.transaction}
+                        </div>
+                        {result.subcategory && (
+                          <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {result.subcategory}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 dark:from-blue-900/40 dark:to-purple-900/40 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
-                        {result.category}
-                      </span>
+                      <div className="flex flex-col space-y-1">
+                        <span className="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 dark:from-blue-900/40 dark:to-purple-900/40 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+                          {result.category}
+                        </span>
+                        {/* Show feedback option for low-confidence results */}
+                        {result.confidence < 0.8 && result.status === 'success' && (
+                          <button
+                            onClick={() => {
+                              const correctCategory = prompt(`Low confidence (${(result.confidence * 100).toFixed(0)}%)! What should the correct category be for "${result.transaction}"?`)
+                              if (correctCategory) {
+                                console.log(`Feedback: "${result.transaction}" should be "${correctCategory}" (was: ${result.category})`)
+                                alert('Thank you for your feedback! This will help improve the model.')
+                                // TODO: Send feedback to API endpoint
+                              }
+                            }}
+                            className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center space-x-1"
+                            title="Provide feedback for this low-confidence categorization"
+                          >
+                            <span>📝 Provide Feedback</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        <span className={`text-sm font-bold ${
+                          result.confidence >= 0.8
+                            ? 'text-green-600 dark:text-green-400'
+                            : result.confidence >= 0.6
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
                           {(result.confidence * 100).toFixed(1)}%
                         </span>
                         <div className="w-16 bg-slate-200 dark:bg-slate-700 rounded-full h-2">
@@ -538,7 +648,12 @@ export default function BatchUpload() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-xs font-medium text-slate-600 dark:text-slate-400">
-                      {result.method}
+                      <div className="flex flex-col">
+                        <span>{result.method}</span>
+                        {result.error_message && (
+                          <span className="text-red-500 mt-1">{result.error_message}</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

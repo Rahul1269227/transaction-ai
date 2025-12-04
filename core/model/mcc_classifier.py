@@ -100,6 +100,27 @@ class MCCClassifier:
             except (json.JSONDecodeError, ValueError):
                 pass
 
+        # Try to extract MCC from plain text patterns like "POS PUR / 5541 / MERCHANT"
+        # Common patterns: "/ 5541 /", "MCC:5541", "MCC 5541", "(5541)"
+        if not mcc:
+            import re
+            # Pattern: 4-digit number that's a valid MCC, surrounded by delimiters
+            mcc_patterns = [
+                r'[/\s](\d{4})[/\s]',      # / 5541 / or space-delimited
+                r'MCC[:\s]*(\d{4})',        # MCC:5541 or MCC 5541
+                r'\((\d{4})\)',             # (5541)
+                r'^(\d{4})[/\s]',           # 5541 / at start
+            ]
+            for pattern in mcc_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if match:
+                    potential_mcc = match.group(1)
+                    # Validate it's a known MCC code
+                    if potential_mcc in self.mcc_mapping:
+                        mcc = potential_mcc
+                        logger.info(f"Extracted MCC {mcc} from plain text: {text[:50]}...")
+                        break
+
         # If no MCC available, return low confidence with default category
         if not mcc:
             logger.debug("No MCC code available for classification")

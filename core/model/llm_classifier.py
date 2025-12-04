@@ -21,14 +21,20 @@ logger = logging.getLogger(__name__)
 
 # Load configuration from environment variables
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")  # azure or ollama
-LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.05"))
-LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.8"))
-LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "80"))
+
+# Default LLM parameters
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "1.0"))
+LLM_TOP_P = float(os.getenv("LLM_TOP_P", "0.95"))
+LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "500"))
 LLM_NUM_THREADS = int(os.getenv("LLM_NUM_THREADS", "4"))
-LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "50"))  # 50s timeout (first call loads model)
+LLM_REQUEST_TIMEOUT = int(os.getenv("LLM_REQUEST_TIMEOUT", "120"))
 LLM_FEW_SHOT_LIMIT = int(os.getenv("LLM_FEW_SHOT_LIMIT", "5"))
 LLM_MAX_CONCURRENT = int(os.getenv("LLM_MAX_CONCURRENT", "4"))
 LLM_HEALTH_CHECK_TIMEOUT = int(os.getenv("LLM_HEALTH_CHECK_TIMEOUT", "5"))
+
+# Provider-specific temperature overrides
+AZURE_TEMPERATURE = float(os.getenv("AZURE_TEMPERATURE", "1.0"))  # Azure GPT-5 only supports 1.0
+OLLAMA_TEMPERATURE = float(os.getenv("OLLAMA_TEMPERATURE", "0.05"))
 
 # Azure OpenAI configuration
 AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
@@ -69,6 +75,8 @@ class LLMClassifier:
         self.taxonomy_path = taxonomy_path
         self.few_shot_examples = few_shot_examples or []
         self.categories = []
+        self.category_name_to_id = {}
+        self.category_id_to_name = {}
         self._service_unavailable = False  # Track if service is down
         self._error_logged = False  # Only log error once
 
@@ -104,7 +112,12 @@ class LLMClassifier:
         try:
             with open(self.taxonomy_path, 'r') as f:
                 taxonomy = yaml.safe_load(f)
-                self.categories = [cat['name'] for cat in taxonomy.get('categories', [])]
+                # Store both category IDs and names for mapping
+                self.categories = [cat['id'] for cat in taxonomy.get('categories', [])]
+                # Create mapping from name (with spaces) to id (with underscores)
+                self.category_name_to_id = {cat['name']: cat['id'] for cat in taxonomy.get('categories', [])}
+                # Also create reverse mapping for display
+                self.category_id_to_name = {cat['id']: cat['name'] for cat in taxonomy.get('categories', [])}
                 logger.info(f"Loaded {len(self.categories)} categories from taxonomy")
         except Exception as e:
             logger.error(f"Failed to load taxonomy: {e}")
@@ -127,7 +140,12 @@ class LLMClassifier:
         Returns:
             Formatted prompt string
         """
-        categories_str = ", ".join(self.categories)
+        # Show friendly category names to LLM (with spaces) instead of IDs (with underscores)
+        if self.category_id_to_name:
+            category_names = [self.category_id_to_name.get(cat_id, cat_id) for cat_id in self.categories]
+            categories_str = ", ".join(category_names)
+        else:
+            categories_str = ", ".join(self.categories)
 
         prompt = f"""You are a financial transaction categorization expert. Your task is to categorize bank transactions into predefined categories.
 
@@ -249,6 +267,10 @@ Response Format (JSON only, no extra text):
             # Build prompt
             prompt = self._build_prompt(text, amount)
 
+            # DEBUG: Log provider check
+            logger.info(f"🔍 LLM Provider check: self.provider='{self.provider}' (type: {type(self.provider).__name__})")
+            logger.info(f"🔍 Checking if self.provider == 'azure': {self.provider == 'azure'}")
+
             # Call LLM API based on provider
             if self.provider == "azure":
                 # Azure OpenAI API (GPT-5)
@@ -257,16 +279,20 @@ Response Format (JSON only, no extra text):
                     "Content-Type": "application/json",
                     "api-key": self.azure_api_key
                 }
-                # GPT-5 specific parameters: uses max_completion_tokens, doesn't support top_p
+                # Azure GPT-5 specific parameters (configurable via .env):
+                # - temperature: Use AZURE_TEMPERATURE from .env (default 1.0, only supported value)
+                # - max_completion_tokens: Azure uses this instead of max_tokens
+                # - top_p: Not supported by Azure GPT-5, excluded from payload
                 payload = {
                     "messages": [
                         {"role": "system", "content": "You are a financial transaction categorization expert."},
                         {"role": "user", "content": prompt}
                     ],
-                    "temperature": LLM_TEMPERATURE,
+                    "temperature": AZURE_TEMPERATURE,  # From .env (Azure GPT-5 requires 1.0)
                     "max_completion_tokens": LLM_MAX_TOKENS
                 }
 
+                logger.info(f"🔵 Calling Azure GPT-5: {url}")
                 async with session.post(
                     url,
                     headers=headers,
@@ -275,15 +301,24 @@ Response Format (JSON only, no extra text):
                 ) as response:
                     if response.status != 200:
                         error_text = await response.text()
-                        logger.error(f"Azure OpenAI API error: {response.status} - {error_text}")
+                        logger.error(f"❌ Azure OpenAI API error: {response.status} - {error_text}")
                         return "Other", 0.5, "LLM API error"
 
                     result = await response.json()
-                    llm_output = result['choices'][0]['message']['content'].strip()
-                    logger.info(f"Azure GPT-5 raw response: {llm_output[:200]}")
+                    llm_output = result['choices'][0]['message']['content']
+
+                    # Check for empty or None response from Azure
+                    if not llm_output or not llm_output.strip():
+                        logger.error(f"❌ Azure GPT-5 returned EMPTY response! Full result: {result}")
+                        logger.error(f"   Prompt was: {prompt[:200]}...")
+                        return "other", 0.5, "Azure returned empty response"
+
+                    llm_output = llm_output.strip()
+                    logger.info(f"✅ Azure GPT-5 raw response (FULL): {llm_output}")
 
             else:
-                # Ollama API (local LLM)
+                # Ollama API (local LLM) - configurable via .env
+                logger.info(f"🟡 Using Ollama API: {self.ollama_url}/api/generate (provider='{self.provider}')")
                 async with session.post(
                     f"{self.ollama_url}/api/generate",
                     json={
@@ -291,7 +326,7 @@ Response Format (JSON only, no extra text):
                         "prompt": prompt,
                         "stream": False,
                         "options": {
-                            "temperature": LLM_TEMPERATURE,
+                            "temperature": OLLAMA_TEMPERATURE,  # From .env (default 0.05 for deterministic results)
                             "top_p": LLM_TOP_P,
                             "num_predict": LLM_MAX_TOKENS,
                             "num_thread": LLM_NUM_THREADS
@@ -317,6 +352,11 @@ Response Format (JSON only, no extra text):
                     category = parsed.get('category', 'Other')
                     confidence = float(parsed.get('confidence', 0.5))
                     reasoning = parsed.get('reasoning', 'No reasoning provided')
+
+                    # Convert category name (with spaces) to ID (with underscores) if needed
+                    if category in self.category_name_to_id:
+                        category = self.category_name_to_id[category]
+                        logger.debug(f"Converted category name to ID: {parsed.get('category')} -> {category}")
 
                     # Validate category
                     if category not in self.categories:
@@ -389,29 +429,68 @@ Response Format (JSON only, no extra text):
             # Build prompt
             prompt = self._build_prompt(text, amount)
 
-            # Call Ollama API
-            response = requests.post(
-                f"{self.ollama_url}/api/generate",
-                json={
-                    "model": self.model_name,
-                    "prompt": prompt,
-                    "stream": False,
-                    "options": {
-                        "temperature": LLM_TEMPERATURE,
-                        "top_p": LLM_TOP_P,
-                        "num_predict": LLM_MAX_TOKENS
-                    }
-                },
-                timeout=timeout
-            )
+            # DEBUG: Log provider check
+            logger.info(f"🔍 LLM Provider check: self.provider='{self.provider}' (type: {type(self.provider).__name__})")
+            logger.info(f"🔍 Checking if self.provider == 'azure': {self.provider == 'azure'}")
 
-            if response.status_code != 200:
-                logger.error(f"LLM API error: {response.status_code}")
-                return "Other", 0.5, "LLM API error"
+            # Call LLM API based on provider
+            if self.provider == "azure":
+                # Azure OpenAI API (GPT-5)
+                url = f"{self.azure_endpoint}/openai/deployments/{self.azure_deployment}/chat/completions?api-version={self.azure_api_version}"
+                headers = {
+                    "Content-Type": "application/json",
+                    "api-key": self.azure_api_key
+                }
+                # Azure GPT-5 specific parameters (configurable via .env):
+                # - temperature: Use AZURE_TEMPERATURE from .env (default 1.0, only supported value)
+                # - max_completion_tokens: Azure uses this instead of max_tokens
+                # - top_p: Not supported by Azure GPT-5, excluded from payload
+                payload = {
+                    "messages": [
+                        {"role": "system", "content": "You are a financial transaction categorization expert."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    "temperature": AZURE_TEMPERATURE,  # From .env (Azure GPT-5 requires 1.0)
+                    "max_completion_tokens": LLM_MAX_TOKENS
+                }
 
-            # Parse response
-            result = response.json()
-            llm_output = result.get('response', '').strip()
+                logger.info(f"🔵 Calling Azure GPT-5: {url}")
+                response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+
+                if response.status_code != 200:
+                    error_text = response.text
+                    logger.error(f"❌ Azure OpenAI API error: {response.status_code} - {error_text}")
+                    return "Other", 0.5, "LLM API error"
+
+                result = response.json()
+                llm_output = result['choices'][0]['message']['content'].strip()
+                logger.info(f"✅ Azure GPT-5 raw response (FULL): {llm_output}")
+
+            else:
+                # Ollama API (local LLM) - configurable via .env
+                logger.info(f"🟡 Using Ollama API: {self.ollama_url}/api/generate (provider='{self.provider}')")
+                response = requests.post(
+                    f"{self.ollama_url}/api/generate",
+                    json={
+                        "model": self.model_name,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {
+                            "temperature": OLLAMA_TEMPERATURE,  # From .env (default 0.05 for deterministic results)
+                            "top_p": LLM_TOP_P,
+                            "num_predict": LLM_MAX_TOKENS
+                        }
+                    },
+                    timeout=timeout
+                )
+
+                if response.status_code != 200:
+                    logger.error(f"Ollama API error: {response.status_code}")
+                    return "Other", 0.5, "LLM API error"
+
+                # Parse response
+                result = response.json()
+                llm_output = result.get('response', '').strip()
 
             # Extract JSON from response
             try:
@@ -425,6 +504,11 @@ Response Format (JSON only, no extra text):
                     category = parsed.get('category', 'Other')
                     confidence = float(parsed.get('confidence', 0.5))
                     reasoning = parsed.get('reasoning', 'No reasoning provided')
+
+                    # Convert category name (with spaces) to ID (with underscores) if needed
+                    if category in self.category_name_to_id:
+                        category = self.category_name_to_id[category]
+                        logger.debug(f"Converted category name to ID: {parsed.get('category')} -> {category}")
 
                     # Validate category
                     if category not in self.categories:

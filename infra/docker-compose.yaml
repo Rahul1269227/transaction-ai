@@ -156,9 +156,9 @@ services:
       # LLM generation parameters
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-1.0}
       - LLM_TOP_P=${LLM_TOP_P:-0.95}
-      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-500}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-2000}  # Increased from 500 - GPT-5 needs more tokens for reasoning
       - LLM_NUM_THREADS=${LLM_NUM_THREADS:-4}
-      - LLM_REQUEST_TIMEOUT=${LLM_REQUEST_TIMEOUT:-50}
+      - LLM_REQUEST_TIMEOUT=${LLM_REQUEST_TIMEOUT:-60}  # 60s timeout for Azure GPT-5 (can be slow)
       - LLM_FEW_SHOT_LIMIT=${LLM_FEW_SHOT_LIMIT:-5}
       - LLM_MAX_CONCURRENT=${LLM_MAX_CONCURRENT:-4}
       - LLM_HEALTH_CHECK_TIMEOUT=${LLM_HEALTH_CHECK_TIMEOUT:-5}

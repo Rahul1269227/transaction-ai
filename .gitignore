@@ -223,3 +223,22 @@ site/
 # Demo files (don't commit demo/test files)
 demo_files/
 DEMO_COMMANDS.txt
+
+# LinkedIn demo assets (temporary files for post creation)
+# These are generated files and internal guides - not for repo
+architecture_diagram.png
+code_screenshot.png
+performance_metrics.png
+Transaction_AI_LinkedIn_Carousel.pdf
+Transaction_AI_Final_Carousel.pdf
+generate_images.py
+generate_linkedin_carousel.py
+generate_final_carousel.py
+demo_performance_test.sh
+
+# LinkedIn guides (internal use only)
+docs/linkedin/
+LINKEDIN_*.md
+
+# Internal fix documentation
+docs/fixes/

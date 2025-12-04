@@ -1204,7 +1204,12 @@ async def reload_model():
 async def batch_categorize_simple(request: Dict[str, List[str]]):
     """
     Simplified batch categorization endpoint for UI
-    Accepts array of transaction strings with 5-minute timeout
+    Accepts array of transaction strings
+
+    Performance:
+    - With FAST_MODE=true: ~2-3 seconds per transaction (skips LLM when Rule+ML agree)
+    - With FAST_MODE=false: Uses full ensemble including LLM (slower but more accurate)
+    - Configure via FAST_MODE and FAST_MODE_THRESHOLD environment variables
     """
     if not router:
         raise HTTPException(status_code=503, detail="Service not initialized")
@@ -1217,74 +1222,57 @@ async def batch_categorize_simple(request: Dict[str, List[str]]):
         raise HTTPException(status_code=400, detail="Maximum 1000 transactions per batch")
 
     start = time.perf_counter()
-    results = []
 
     try:
+        # Convert string list to transaction dicts for batch processing
+        transaction_dicts = []
         for idx, txn_text in enumerate(transactions):
-            try:
-                # Validate that transaction text is a string
-                if not isinstance(txn_text, str):
-                    error_msg = f"Transaction at index {idx} is not a string: {type(txn_text).__name__}. Value: {txn_text}"
-                    logger.error(error_msg)
-                    results.append({
-                        "transaction": str(txn_text) if txn_text else "invalid",
-                        "category": "Unknown",
-                        "subcategory": None,
-                        "confidence": 0.0,
-                        "method": "error",
-                        "status": "error",
-                        "error_message": error_msg
-                    })
-                    continue
-                
-                txn_text_str = str(txn_text).strip()
-                if not txn_text_str:
-                    error_msg = "Transaction text cannot be empty"
-                    logger.error(f"Empty transaction at index {idx}")
-                    results.append({
-                        "transaction": "",
-                        "category": "Unknown",
-                        "subcategory": None,
-                        "confidence": 0.0,
-                        "method": "error",
-                        "status": "error",
-                        "error_message": error_msg
-                    })
-                    continue
-                
-                # Categorize each transaction
-                result = router.categorize(
-                    text=txn_text_str,
-                    amount=None,
-                    date=None,
-                    currency="INR",
-                )
+            # Validate transaction text
+            if not isinstance(txn_text, str):
+                logger.error(f"Transaction at index {idx} is not a string: {type(txn_text).__name__}")
+                continue
 
-                # Build successful result
+            txn_text_str = str(txn_text).strip()
+            if not txn_text_str:
+                logger.error(f"Empty transaction at index {idx}")
+                continue
+
+            transaction_dicts.append({
+                "text": txn_text_str,
+                "amount": None,
+                "date": None
+                # currency will default to DEFAULT_CURRENCY env var in ensemble_router
+            })
+
+        # Use async batch processing (concurrency controlled by LLM_MAX_CONCURRENT env var)
+        categorization_results = await router.categorize_batch_async(transaction_dicts)
+
+        # Build response results
+        results = []
+        for idx, (txn_dict, cat_result) in enumerate(zip(transaction_dicts, categorization_results)):
+            if cat_result.method == "error":
                 results.append({
-                    "transaction": txn_text_str,
-                    "category": result.category,
-                    "subcategory": result.subcategory,
-                    "confidence": float(result.confidence),
-                    "method": result.method,
-                    "status": "success"
-                })
-
-                # Log progress for large batches
-                if (idx + 1) % 10 == 0:
-                    logger.info(f"Processed {idx + 1}/{len(transactions)} transactions")
-
-            except Exception as exc:
-                logger.warning(f"Error categorizing transaction '{str(txn_text)[:50]}...': {exc}")
-                results.append({
-                    "transaction": str(txn_text) if txn_text else "invalid",
+                    "transaction": txn_dict["text"],
                     "category": "Unknown",
                     "subcategory": None,
                     "confidence": 0.0,
                     "method": "error",
                     "status": "error",
-                    "error_message": str(exc)
+                    "error_message": cat_result.explanations[0] if cat_result.explanations else "Unknown error"
                 })
+            else:
+                results.append({
+                    "transaction": txn_dict["text"],
+                    "category": cat_result.category,
+                    "subcategory": cat_result.subcategory,
+                    "confidence": float(cat_result.confidence),
+                    "method": cat_result.method,
+                    "status": "success"
+                })
+
+            # Log progress for large batches
+            if (idx + 1) % 10 == 0:
+                logger.info(f"Processed {idx + 1}/{len(transaction_dicts)} transactions")
 
         duration = time.perf_counter() - start
         logger.info(f"Batch categorization completed: {len(transactions)} transactions in {duration:.2f}s")
@@ -1308,6 +1296,11 @@ async def upload_pdf_statement(file: UploadFile = File(...)):
     Upload PDF bank statement and extract + categorize transactions
 
     Accepts PDF files and returns categorized transactions
+
+    Performance:
+    - With FAST_MODE=true: ~2-3 seconds per transaction (skips LLM when Rule+ML agree)
+    - With FAST_MODE=false: Uses full ensemble including LLM (slower but more accurate)
+    - Configure via FAST_MODE and FAST_MODE_THRESHOLD environment variables
     """
     if not router:
         raise HTTPException(status_code=503, detail="Service not initialized")

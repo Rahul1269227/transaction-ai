@@ -8,6 +8,10 @@ const nextConfig = {
       },
     ]
   },
+  // Increase server timeout for long-running batch operations
+  serverRuntimeConfig: {
+    timeout: 300000, // 5 minutes in milliseconds
+  },
 }
 
 module.exports = nextConfig

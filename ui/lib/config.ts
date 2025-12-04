@@ -1,7 +1,7 @@
 // API Configuration
-// Use relative URLs to leverage Next.js API proxy (/api/* -> http://localhost:8000/*)
-// The proxy is configured in next.config.js
-export const API_BASE_URL = '/api'
+// Direct API calls to avoid Next.js proxy timeout issues with long-running batch requests
+// For single requests, the proxy works fine, but batch operations can take 30+ seconds
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export const API_ENDPOINTS = {
   categorize: `${API_BASE_URL}/categorize`,
