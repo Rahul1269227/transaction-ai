@@ -31,6 +31,12 @@
 
 Transaction AI is a **privacy-first, production-ready** system for automatically categorizing financial transactions with high accuracy. It combines multiple AI techniques in an intelligent ensemble to achieve **98%+ accuracy** while maintaining fast response times (~100ms in fast mode).
 
+## March 2026 Refresh
+
+- Repository maintenance update pushed for current-month activity
+- Historical evaluation-log cleanup completed for public history hygiene
+- Documentation re-reviewed for public presentation
+
 ### Why Transaction AI?
 
 - **🎯 High Accuracy**: 98.38% validation accuracy, 69.2% on real-world data
